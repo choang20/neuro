@@ -2,20 +2,15 @@
 //  ContentView.swift
 //  Neurocular
 //
-//  Created by Max Taggart on 5/5/25.
+//  Created by Max Taggart on 5/6/25.
 //
 
 import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
+        DevEntrypoint()
+//        ProductionEntrypoint()
     }
 }
 

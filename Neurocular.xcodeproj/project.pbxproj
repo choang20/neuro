@@ -6,13 +6,30 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		313AD8342DCB1144003A3FDD /* FirebaseAnalyticsWithoutAdIdSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 313AD8332DCB1144003A3FDD /* FirebaseAnalyticsWithoutAdIdSupport */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
-		313AD8152DC9B27F003A3FDD /* Neurocular.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Neurocular.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		313AD8152DC9B27F003A3FDD /* NeurOcular.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NeurOcular.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		313AD87F2DE9598F003A3FDD /* Exceptions for "Neurocular" folder in "Neurocular" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 313AD8142DC9B27F003A3FDD /* Neurocular */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		313AD8172DC9B27F003A3FDD /* Neurocular */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				313AD87F2DE9598F003A3FDD /* Exceptions for "Neurocular" folder in "Neurocular" target */,
+			);
 			path = Neurocular;
 			sourceTree = "<group>";
 		};
@@ -23,6 +40,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				313AD8342DCB1144003A3FDD /* FirebaseAnalyticsWithoutAdIdSupport in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -40,7 +58,7 @@
 		313AD8162DC9B27F003A3FDD /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				313AD8152DC9B27F003A3FDD /* Neurocular.app */,
+				313AD8152DC9B27F003A3FDD /* NeurOcular.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -65,9 +83,10 @@
 			);
 			name = Neurocular;
 			packageProductDependencies = (
+				313AD8332DCB1144003A3FDD /* FirebaseAnalyticsWithoutAdIdSupport */,
 			);
 			productName = Neurocular;
-			productReference = 313AD8152DC9B27F003A3FDD /* Neurocular.app */;
+			productReference = 313AD8152DC9B27F003A3FDD /* NeurOcular.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -94,6 +113,9 @@
 			);
 			mainGroup = 313AD80C2DC9B27F003A3FDD;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				313AD8322DCB1144003A3FDD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 313AD8162DC9B27F003A3FDD /* Products */;
 			projectDirPath = "";
@@ -255,18 +277,21 @@
 				DEVELOPMENT_TEAM = 7XQKG5D2LU;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Neurocular/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera usage description";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.4;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.cjm.Neurocular;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.cjm.neurocular;
+				PRODUCT_NAME = NeurOcular;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -284,18 +309,21 @@
 				DEVELOPMENT_TEAM = 7XQKG5D2LU;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Neurocular/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera usage description";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.4;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.cjm.Neurocular;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.cjm.neurocular;
+				PRODUCT_NAME = NeurOcular;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -324,6 +352,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		313AD8322DCB1144003A3FDD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.12.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		313AD8332DCB1144003A3FDD /* FirebaseAnalyticsWithoutAdIdSupport */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 313AD8322DCB1144003A3FDD /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalyticsWithoutAdIdSupport;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 313AD80D2DC9B27F003A3FDD /* Project object */;
 }
