@@ -10,8 +10,10 @@ import SwiftUI
 
 struct Test: View {
     @State private var rotate_screen: Bool = true
-    private var current_cycle_index: Int = 0
     @State private var test_finished: Bool = false
+    @Binding var navigation_path: NavigationPath
+    let patient_info: PatientInfo
+    let storage_manager: StorageManager
     
     
     var body: some View {
@@ -40,9 +42,16 @@ struct Test: View {
                 rotate_screen = false
             }
         } else if test_finished {
-            Text("Done")
+            Text("Done").task {
+                try! await Task.sleep(for: .seconds(1))
+                navigation_path.removeLast(navigation_path.count)
+            }
         } else {
-            Stimulus(on_completed_test: {test_finished = true})
+            Stimulus(
+                patient_info: patient_info,
+                storage_manager: storage_manager,
+                on_completed_test: {test_finished = true}
+            )
         }
         
     }
@@ -50,5 +59,12 @@ struct Test: View {
 
 
 #Preview {
-    Test()
+    let patient_info = PatientInfo(
+        first_name: "Test", last_name: "Patient", birth_date: Date(), sex: .Male, race: .White, ethnicity: .NotHispanic
+    )
+    Test(
+        navigation_path: .constant(NavigationPath()),
+        patient_info: patient_info,
+        storage_manager: StorageManager()
+    )
 }

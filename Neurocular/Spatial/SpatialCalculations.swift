@@ -26,6 +26,10 @@ func calculate_distance_from_screen(from_transforms transforms: Transforms) -> F
     return Float(simd_length(point_in_camera_space) * 100 / 2.54);
 }
 
+func calculate_distance_from_screen_vectorized(_ transforms: [Transforms]) -> [Float] {
+    transforms.map(calculate_distance_from_screen)
+}
+
 
 struct GazeAngles {
     let left: Float
@@ -43,6 +47,10 @@ func calculate_horizontal_gaze_angle(
         left: horizontal_gaze_angle_for_eye(eye_transforms: transforms.left_eye),
         right: horizontal_gaze_angle_for_eye(eye_transforms: transforms.right_eye)
     )
+}
+
+func calculate_horizontal_gaze_angle_vectorized(_ transforms: [Transforms]) -> [GazeAngles] {
+    transforms.map(calculate_vertical_gaze_angle)
 }
 
 /**

@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-enum Race {
+enum Race: String, Codable {
     case Blank
     case White
     case Black
@@ -26,7 +26,7 @@ enum Race {
     case ChooseNotToAnswer
 }
 
-enum Ethnicity {
+enum Ethnicity: String, Codable {
     case Blank
     case NotHispanic
     case PuertoRican
@@ -36,13 +36,13 @@ enum Ethnicity {
     case ChooseNotToAnswer
 }
 
-enum Sex {
+enum Sex: String, Codable {
     case Blank
     case Female
     case Male
 }
 
-struct PatientInfo {
+struct PatientInfo: Codable, Hashable {
     var first_name: String;
     var last_name: String;
     var birth_date: Date;
@@ -51,16 +51,17 @@ struct PatientInfo {
     var ethnicity: Ethnicity;
 }
 
-struct DemographicsNavInfo: Hashable {}
+struct TestDestination: Hashable {}
 
 struct Demographics: View {
-    @Binding var navigation_path: NavigationPath
     @State private var first_name: String = ""
     @State private var last_name: String = ""
     @State private var birth_date: Date = Date()
     @State private var sex: Sex = Sex.Blank
     @State private var race: Race = Race.Blank
     @State private var ethnicity: Ethnicity = Ethnicity.Blank
+    @Binding var navigation_path: NavigationPath
+    let storage_manager: StorageManager
     
     var body: some View {
         Form {
@@ -74,7 +75,8 @@ struct Demographics: View {
                 )
             }
             Section {
-                Picker("Sex", selection: $race) {
+                Picker("Sex", selection: $sex) {
+                    Text("").tag(Sex.Blank)
                     Text("Female").tag(Sex.Female)
                     Text("Male").tag(Sex.Male)
                 }
@@ -107,14 +109,26 @@ struct Demographics: View {
                 }
             }
             
-            Button("Begin Test") {
-                
-            }
+            NavigationLink("Begin Test", value: TestDestination())
         }
         .navigationTitle("Patient Information")
+        .navigationDestination(for: TestDestination.self) { _ in
+            Test(
+                navigation_path: $navigation_path,
+                patient_info: PatientInfo(
+                    first_name: first_name,
+                    last_name: last_name,
+                    birth_date: birth_date,
+                    sex: sex,
+                    race: race,
+                    ethnicity: ethnicity
+                ),
+                storage_manager: storage_manager
+            )
+        }
     }
 }
 
 #Preview {
-    Demographics(navigation_path: .constant(NavigationPath()))
+    Demographics(navigation_path: .constant(NavigationPath()), storage_manager: StorageManager())
 }

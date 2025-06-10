@@ -24,9 +24,16 @@ import SwiftUI
 struct DevEntrypoint: View {
     let spatial_emitter: SpatialDataEmitter = SpatialDataEmitter()
     @State private var latest_frame: SpatialFrameData = .NoFaceDetected
+    let patient_info = PatientInfo(
+        first_name: "Test", last_name: "Patient", birth_date: Date(), sex: .Male, race: .White, ethnicity: .NotHispanic
+    )
     
     var body: some View {
-        Test()
+        Test(
+            navigation_path: .constant(NavigationPath()),
+            patient_info: patient_info,
+            storage_manager: StorageManager()
+        )
     }
 }
 

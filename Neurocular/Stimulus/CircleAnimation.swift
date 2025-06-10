@@ -14,13 +14,17 @@ import SpriteKit
 
 struct Stimulus: View {
     @State private var cycle_count: Int = 0
+    let patient_info: PatientInfo
+    let storage_manager: StorageManager
     var on_completed_test: () -> Void
     
     var scene: SKScene {
         let scene = MovingCircleScene(
             size: CGSize(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height),
             on_completed_test: on_completed_test,
-            wrap: false
+            wrap: false,
+            patient_info: patient_info,
+            storage_manager: storage_manager
         )
         scene.scaleMode = .resizeFill
         return scene
@@ -54,6 +58,8 @@ let iPhone14_ppi: CGFloat = 460.0
 class MovingCircleScene: SKScene {
     private var on_completed_test: () -> Void
     private var wrap: Bool
+    private var patient_info: PatientInfo
+    private var session_sink: SessionSink
     private var circleNode: SKShapeNode!
     private var radius: CGFloat = 20
     private var start_x: CGFloat!
@@ -63,15 +69,25 @@ class MovingCircleScene: SKScene {
     private var previous_x: CGFloat = 0
     private var direction: Direction = .Right
     let spatial_emitter: SpatialDataEmitter = SpatialDataEmitter()
+    
     private var current_speed_cycle_index: Int = 0
     private var remaning_excursions: Int = speed_cycles[0].1
     private var current_pixels_per_second: CGFloat = 0
     private var spatial_emitter_task: Task<Void, Never>!
     private var update_count: Int = 0
 
-    init(size: CGSize, on_completed_test: @escaping () -> Void, wrap: Bool) {
+    init(
+        size: CGSize,
+        on_completed_test: @escaping () -> Void,
+        wrap: Bool,
+        patient_info: PatientInfo,
+        storage_manager: StorageManager
+    ) {
         self.on_completed_test = on_completed_test
         self.wrap = wrap
+        self.patient_info = patient_info
+        self.session_sink = SessionSink(
+            storage_manager: storage_manager, patient_info: patient_info)
         super.init(size: size)
         self.spatial_emitter_task = Task {
             for await frame_data in await spatial_emitter.stream {
@@ -84,6 +100,9 @@ class MovingCircleScene: SKScene {
                     let (degrees_per_second, _) = speed_cycles[current_speed_cycle_index]
                     // Calculate pixels per second given distance and width
                     current_pixels_per_second = iPhone14_ppi * CGFloat(eye_distance_inches) * tan(CGFloat(Float.pi / 180.0) * CGFloat(degrees_per_second))
+                    session_sink.add_row(Row(
+                        transforms: data.transforms, degrees_per_second: degrees_per_second
+                    ))
                 }
             }
         }
@@ -174,6 +193,7 @@ class MovingCircleScene: SKScene {
             if self.remaning_excursions == 0 {
                 // Checkin to see if we have finished the test
                 if self.current_speed_cycle_index == speed_cycles.count - 1 {
+                    self.test_complete()
                     on_completed_test()
                     return
                 } else {
@@ -206,6 +226,11 @@ class MovingCircleScene: SKScene {
             self.spatial_emitter_task.cancel()
         }
         
+    }
+    
+    private func test_complete() {
+        self.session_sink.done()
+        self.spatial_emitter_task.cancel()
     }
 }
 
@@ -250,5 +275,12 @@ func interpolate_linear(relative_time: Double, start: CGFloat, end: CGFloat) -> 
 //}
 
 #Preview {
-    Stimulus(on_completed_test: {print("Done!!!")})
+    let patient_info = PatientInfo(
+        first_name: "Test", last_name: "Patient", birth_date: Date(), sex: .Male, race: .White, ethnicity: .NotHispanic
+    )
+    Stimulus(
+        patient_info: patient_info,
+        storage_manager: StorageManager(),
+        on_completed_test: {print("Done!!!")}
+    )
 }
