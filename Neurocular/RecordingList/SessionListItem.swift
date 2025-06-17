@@ -21,14 +21,23 @@ struct SessionListItem: View {
     }
     
     let date_formatter = MetadataDateFormatter()
+    
     var body: some View {
-//        if app_config.print_changes {let _ = Self._printChanges()}
         HStack {
-            VStack(alignment: .leading) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(date_formatter.formatter.string(from: session.created))
-                Text("\(session.demographics.first_name) \(session.demographics.last_name)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                
+                if session.notes.isEmpty {
+                    Text("No notes")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .italic()
+                } else {
+                    Text(session.notes)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
 
                 Text(session.id.prefix(8))
                     .font(.subheadline)

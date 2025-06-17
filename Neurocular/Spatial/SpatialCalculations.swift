@@ -72,6 +72,23 @@ func calculate_head_angle(
     atan(transforms.head[2][0] / transforms.head[2][2]) * 180 / Float.pi
 }
 
+func derivative(of values: [Float], inter_sample_distance: Float) -> [Float] {
+    if values.count == 1 {
+        return values
+    }
+    var out: [Float] = []
+    var previous = values[0]
+    for i in 1..<values.count {
+        let next_value = values[i]
+        out.append((next_value - previous) / inter_sample_distance)
+        previous = next_value
+    }
+    // Copy the last element in order to keep the retain
+    // the length of the input vector
+    out.append(out[out.count - 1])
+    return out
+}
+
 fileprivate func horizontal_gaze_angle_for_eye(
     eye_transforms: SerializableMatrix4x4
 ) -> Float {

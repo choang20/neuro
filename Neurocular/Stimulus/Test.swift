@@ -9,10 +9,11 @@ import SwiftUI
 
 
 struct Test: View {
-    @State private var rotate_screen: Bool = true
+    @State private var orientation_is_correct: Bool = false
     @State private var test_finished: Bool = false
+    @State private var rotation_instructions: String = "Please rotate your screen counterclockwise into landscape mode."
     @Binding var navigation_path: NavigationPath
-    let patient_info: PatientInfo
+    let patient_info: PatientInfo?
     let storage_manager: StorageManager
     
     
@@ -34,12 +35,30 @@ struct Test: View {
 //                    }
 //                }
 //            }
-        if rotate_screen {
-            Text(
-                "Please rotate your screen counterclockwise into landscape mode."
-            ).task {
-                try! await Task.sleep(for: .seconds(2))
-                rotate_screen = false
+        if !orientation_is_correct {
+            Text(rotation_instructions).onRotate { new_orientation in
+                print(new_orientation)
+                switch new_orientation {
+                case .unknown:
+                    ()
+                case .portrait:
+                    orientation_is_correct = false
+                    rotation_instructions = "Please rotate your screen counterclockwise into landscape mode."
+                case .portraitUpsideDown:
+                    orientation_is_correct = false
+                    rotation_instructions = "Oops, too far."
+                case .landscapeLeft:
+                    orientation_is_correct = true
+                case .landscapeRight:
+                    orientation_is_correct = false
+                    rotation_instructions = "Other way."
+                case .faceUp:
+                    ()
+                case .faceDown:
+                    ()
+                case _:
+                    ()
+                }
             }
         } else if test_finished {
             Text("Done").task {
@@ -57,14 +76,31 @@ struct Test: View {
     }
 }
 
+// Our custom view modifier to track rotation and
+// call our action
+struct DeviceRotationViewModifier: ViewModifier {
+    let action: (UIDeviceOrientation) -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear()
+            .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
+                action(UIDevice.current.orientation)
+            }
+    }
+}
+
+// A View wrapper to make the modifier easier to use
+extension View {
+    func onRotate(perform action: @escaping (UIDeviceOrientation) -> Void) -> some View {
+        self.modifier(DeviceRotationViewModifier(action: action))
+    }
+}
 
 #Preview {
-    let patient_info = PatientInfo(
-        first_name: "Test", last_name: "Patient", birth_date: Date(), sex: .Male, race: .White, ethnicity: .NotHispanic
-    )
     Test(
         navigation_path: .constant(NavigationPath()),
-        patient_info: patient_info,
+        patient_info: nil,
         storage_manager: StorageManager()
     )
 }

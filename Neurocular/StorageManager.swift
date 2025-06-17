@@ -15,13 +15,39 @@ struct Row: Codable {
 
 struct Session: Codable, Identifiable {
     let id: String
-    let demographics: PatientInfo
+    let demographics: PatientInfo?
     let rows: [Row]
     let created: Date
+    var notes: String
     
-    static func from_url(_ url: URL) -> Session {
+    static func from(url: URL) -> Session {
         let file_contents = try! Data.init(contentsOf: url)
         return try! JSONDecoder().decode(Session.self, from: file_contents)
+    }
+
+    func write(to url: URL) {
+        let json_encoded = try! JSONEncoder().encode(self)
+        try! json_encoded.write(to: url)
+    }
+    
+    static func from(rows: [Row]) -> Session {
+        return Session(
+            id: UUID().uuidString,
+            demographics: nil,
+            rows: rows,
+            created: Date(),
+            notes: ""
+        )
+    }
+
+    static func from(rows rows_and_demographics: [Row], demographics: PatientInfo) -> Session {
+        return Session(
+            id: UUID().uuidString,
+            demographics: demographics,
+            rows: rows_and_demographics,
+            created: Date(),
+            notes: ""
+        )
     }
 }
 
@@ -29,7 +55,7 @@ struct Session: Codable, Identifiable {
 @Observable
 class StorageManager {
     var session_list: [Session] = []
-    var data_dir = URL(string: "recordings/", relativeTo: URL.documentsDirectory)!
+    let data_dir = URL(string: "recordings/", relativeTo: URL.documentsDirectory)!
     
     init() {
         ensure_directory_exists(self.data_dir)
@@ -37,16 +63,16 @@ class StorageManager {
     }
     
     func add_session(_ session: Session) {
-        var filename = "\(session.demographics.first_name)_\(session.demographics.last_name).json"
-        var file_url = URL(string: filename, relativeTo: self.data_dir)!
-        var counter = 0
-        while file_exists(at_url: file_url) {
-            counter += 1
-            filename = "\(session.demographics.first_name)_\(session.demographics.last_name)_\(counter).json"
-            file_url = URL(string: filename, relativeTo: self.data_dir)!
-        }
-        let json_encoded = try! JSONEncoder().encode(session)
-        try! json_encoded.write(to: file_url)
+        let filename = "\(session.id).json"
+        let file_url = URL(string: filename, relativeTo: self.data_dir)!
+        session.write(to: file_url)
+        session_list = get_all_sessions()
+    }
+    
+    func update_session(_ session: Session) {
+        let filename = "\(session.id).json"
+        let file_url = URL(string: filename, relativeTo: self.data_dir)!
+        session.write(to: file_url)
         session_list = get_all_sessions()
     }
     
@@ -59,11 +85,20 @@ class StorageManager {
             at: data_dir,
             includingPropertiesForKeys: []
         )
-        .map(Session.from_url)
+        .map(Session.from)
         .sorted { a, b in
             // A predicate that returns true if its first argument should be ordered before its second argument; otherwise, false.
             a.created > b.created
         }
+    }
+    
+    func delete_session(id: String){
+        let filename = "\(id).json"
+        let file_url = URL(string: filename, relativeTo: self.data_dir)!
+        if !file_exists(at_url: file_url) {
+            return
+        }
+        try! FileManager.default.removeItem(at: file_url)
     }
     
     private func file_exists(at_url url: URL) -> Bool {

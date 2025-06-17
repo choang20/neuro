@@ -10,12 +10,12 @@ import Foundation
 
 
 class SessionSink {
-    private var patient_info: PatientInfo
+    private var patient_info: PatientInfo?
     private var storage_manager: StorageManager
     private var rows: [Row] = []
     
     
-    init(storage_manager: StorageManager, patient_info: PatientInfo) {
+    init(storage_manager: StorageManager, patient_info: PatientInfo?) {
         self.patient_info = patient_info
         self.storage_manager = storage_manager
     }
@@ -29,7 +29,8 @@ class SessionSink {
             id: NSUUID().uuidString.lowercased(),
             demographics: self.patient_info,
             rows: self.rows,
-            created: Date()
+            created: Date(),
+            notes: ""
         )
         storage_manager.add_session(session)
     }

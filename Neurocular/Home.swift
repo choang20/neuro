@@ -61,8 +61,9 @@ struct Home: View {
             .navigationDestination(for: SessionId.self) { session_id in
                 SessionDetail(
                     session: storage_manager.get_session_by_id(session_id.id),
-//                            storage_manager: storage_manager,
-                    navigation_path: $navigation_path)
+                    navigation_path: $navigation_path,
+                    storage_manager: storage_manager
+                )
             }
         }
     }
