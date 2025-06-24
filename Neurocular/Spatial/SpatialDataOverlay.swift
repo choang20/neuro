@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct SpatialDataOverlay: View {
-    @Binding var frame_data: SpatialFrameData
+    @Binding var frame_data: SpatialFrameData?
     
     struct Measurements {
         let head_distance: String
@@ -50,68 +50,71 @@ struct SpatialDataOverlay: View {
             .monospaced()
     
     var body: some View {
-        
-        VStack {
-            HStack{
-                let measurements = Measurements.from(frame_data: frame_data)
+        if let frame_data = frame_data {
+            VStack {
                 HStack{
-                    Text("Distance:")
-                        .foregroundStyle(.gray)
-                    Text(measurements.head_distance)
-                        .foregroundStyle(.foreground)
-                        .font(measurement_font)
-                }
-                
-                Spacer()
-                
-                HStack{
-                    Text("Head:")
-                        .foregroundStyle(.gray)
-                    Text(measurements.head_angle)
-                        .foregroundStyle(.foreground)
-                        .font(measurement_font)
-                }
-                
-                Spacer()
-                
-                HStack{
-                    Text("Left Eye:")
-                        .foregroundStyle(.gray)
-                    Text(measurements.left_eye_angle)
-                        .foregroundStyle(.foreground)
-                        .font(measurement_font)
-                }
-                
-                Spacer()
-                
-                HStack{
-                    Text("Right Eye:")
-                        .foregroundStyle(.gray)
-                    Text(measurements.right_eye_angle)
-                        .foregroundStyle(.foreground)
-                        .font(measurement_font)
-                }
-                
-                Spacer()
-                
-                let image_name = switch frame_data {
-                case .NoFaceDetected:
-                    "FaceNotFound"
-                case .FaceDetected(let frameFaceData):
-                    if frameFaceData.wild_guess {
-                        "WildGuess"
-                    } else {
-                        "TrackingActive"
+                    let measurements = Measurements.from(frame_data: frame_data)
+                    HStack{
+                        Text("Distance:")
+                            .foregroundStyle(.gray)
+                        Text(measurements.head_distance)
+                            .foregroundStyle(.foreground)
+                            .font(measurement_font)
                     }
-                }
-                
-                Image(image_name)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 30, height: 30)
-                
-            }.padding()
-            Spacer()
+                    
+                    Spacer()
+                    
+                    HStack{
+                        Text("Head:")
+                            .foregroundStyle(.gray)
+                        Text(measurements.head_angle)
+                            .foregroundStyle(.foreground)
+                            .font(measurement_font)
+                    }
+                    
+                    Spacer()
+                    
+                    HStack{
+                        Text("Left Eye:")
+                            .foregroundStyle(.gray)
+                        Text(measurements.left_eye_angle)
+                            .foregroundStyle(.foreground)
+                            .font(measurement_font)
+                    }
+                    
+                    Spacer()
+                    
+                    HStack{
+                        Text("Right Eye:")
+                            .foregroundStyle(.gray)
+                        Text(measurements.right_eye_angle)
+                            .foregroundStyle(.foreground)
+                            .font(measurement_font)
+                    }
+                    
+                    Spacer()
+                    
+                    let image_name = switch frame_data {
+                    case .NoFaceDetected:
+                        "FaceNotFound"
+                    case .FaceDetected(let frameFaceData):
+                        if frameFaceData.wild_guess {
+                            "WildGuess"
+                        } else {
+                            "TrackingActive"
+                        }
+                    }
+                    
+                    Image(image_name)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 30, height: 30)
+                    
+                }.padding()
+                Spacer()
+            }
+        } else {
+            ProgressView()
         }
     }
 }

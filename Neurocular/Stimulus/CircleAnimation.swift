@@ -15,7 +15,7 @@ import SpriteKit
 struct Stimulus: View {
     @State private var cycle_count: Int = 0
     let patient_info: PatientInfo?
-    let storage_manager: StorageManager
+    @Binding var storage_manager: StorageManager
     var on_completed_test: () -> Void
     
     var scene: SKScene {
@@ -24,7 +24,7 @@ struct Stimulus: View {
             on_completed_test: on_completed_test,
             wrap: false,
             patient_info: patient_info,
-            storage_manager: storage_manager
+            storage_manager: $storage_manager
         )
         scene.scaleMode = .resizeFill
         return scene
@@ -45,19 +45,19 @@ enum Direction {
 let speed_cycles: [(Int, Int)] = [
     (3, 2),
     (4, 2),
-    (5, 2),
-    (7, 2),
-    (8, 2),
-    (10, 2),
-    (12, 2),
-    (15, 2),
-    (17, 2),
-    (20, 4),
-    (24, 4),
-    (28, 4),
-    (30, 4),
-    (32, 4),
-    (34, 4),
+//    (5, 2),
+//    (7, 2),
+//    (8, 2),
+//    (10, 2),
+//    (12, 2),
+//    (15, 2),
+//    (17, 2),
+//    (20, 4),
+//    (24, 4),
+//    (28, 4),
+//    (30, 4),
+//    (32, 4),
+//    (34, 4),
 ]
 
 let iPhone14_ppi: CGFloat = 460.0
@@ -88,7 +88,7 @@ class MovingCircleScene: SKScene {
         on_completed_test: @escaping () -> Void,
         wrap: Bool,
         patient_info: PatientInfo?,
-        storage_manager: StorageManager
+        storage_manager: Binding<StorageManager>
     ) {
         self.on_completed_test = on_completed_test
         self.wrap = wrap
@@ -218,7 +218,6 @@ class MovingCircleScene: SKScene {
                     direction = .Left
                 }
             }
-            print("Current px/s: \(current_pixels_per_second)")
         }
         
         // Set the new position
@@ -287,7 +286,7 @@ func interpolate_linear(relative_time: Double, start: CGFloat, end: CGFloat) -> 
     )
     Stimulus(
         patient_info: patient_info,
-        storage_manager: StorageManager(),
-        on_completed_test: {print("Done!!!")}
+        storage_manager: .constant(StorageManager()),
+        on_completed_test: {}
     )
 }

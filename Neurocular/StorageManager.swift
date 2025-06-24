@@ -76,8 +76,8 @@ class StorageManager {
         session_list = get_all_sessions()
     }
     
-    func get_session_by_id(_ id: String) -> Session {
-        session_list.first {candidate in candidate.id == id}!
+    func get_session_by_id(_ id: String) -> Session? {
+        session_list.first {candidate in candidate.id == id}
     }
     
     func get_all_sessions() -> [Session] {
@@ -99,6 +99,7 @@ class StorageManager {
             return
         }
         try! FileManager.default.removeItem(at: file_url)
+        session_list = get_all_sessions()
     }
     
     private func file_exists(at_url url: URL) -> Bool {

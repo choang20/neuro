@@ -6,16 +6,16 @@
 //
 
 import Foundation
-
+import SwiftUI
 
 
 class SessionSink {
     private var patient_info: PatientInfo?
-    private var storage_manager: StorageManager
+    var storage_manager: Binding<StorageManager>
     private var rows: [Row] = []
     
     
-    init(storage_manager: StorageManager, patient_info: PatientInfo?) {
+    init(storage_manager: Binding<StorageManager>, patient_info: PatientInfo?) {
         self.patient_info = patient_info
         self.storage_manager = storage_manager
     }
@@ -32,6 +32,6 @@ class SessionSink {
             created: Date(),
             notes: ""
         )
-        storage_manager.add_session(session)
+        storage_manager.wrappedValue.add_session(session)
     }
 }

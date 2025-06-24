@@ -10,7 +10,6 @@ import AVFoundation
 
 struct SessionListItem: View {
     let session: Session
-    let storage_manager: StorageManager
     struct MetadataDateFormatter {
         var formatter = DateFormatter()
         

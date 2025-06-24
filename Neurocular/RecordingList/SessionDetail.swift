@@ -8,87 +8,102 @@
 import SwiftUI
 
 struct SessionDetail: View {
-    let session: Session
+    @Binding var storage_manager: StorageManager
     @Binding var navigation_path: NavigationPath
     @State private var notes: String
-    @State private var debounce_timer: Timer?
-    let storage_manager: StorageManager
+    @State private var showing_delete_alert = false
+    @State private var session: Session?
+    @State private var actively_deleting: Bool = false
     
-    init(session: Session, navigation_path: Binding<NavigationPath>, storage_manager: StorageManager) {
-        self.session = session
+    
+    init(session_id: String, navigation_path: Binding<NavigationPath>, storage_manager: Binding<StorageManager>) {
+        self._storage_manager = storage_manager
         self._navigation_path = navigation_path
-        self.storage_manager = storage_manager
-        self._notes = State(initialValue: session.notes)
-    }
-    
-    private func debounced_update_notes(_ newValue: String) {
-        // Cancel any existing timer
-        debounce_timer?.invalidate()
-        
-        // Create a new timer
-        debounce_timer = Timer.scheduledTimer(withTimeInterval: 0.75, repeats: false) { _ in
-            // Create a new session with updated notes
-            let updated_session = Session(
-                id: session.id,
-                demographics: session.demographics,
-                rows: session.rows,
-                created: session.created,
-                notes: newValue
-            )
-            // Update the session in storage
-            storage_manager.update_session(updated_session)
+        let maybe_session = storage_manager.wrappedValue.get_session_by_id(session_id)
+        if let session = maybe_session {
+            self.session = session
+            self._notes = State(initialValue: session.notes)
+        } else {
+            self.session = nil
+            self._notes = State(initialValue: "")
         }
     }
     
-    private func save_current_notes() {
-        // Cancel any pending timer
-        guard let debounce_timer = debounce_timer else {
-            return
-        }
-        debounce_timer.invalidate()
-        self.debounce_timer = nil
-        
-        // Save the current notes immediately
-        let updated_session = Session(
-            id: session.id,
-            demographics: session.demographics,
-            rows: session.rows,
-            created: session.created,
-            notes: notes
-        )
-        storage_manager.update_session(updated_session)
+    private func delete_session() {
+        actively_deleting = true
+        storage_manager.delete_session(id: session!.id)
+        navigation_path.removeLast()
     }
     
     var body: some View {
-        ScrollView{
-            VStack {
-                SessionInfo(session: session)
-                DemographicInfo(patient_info: session.demographics)
-                GazeAnglePlot(
-                    transforms: session.rows.map {row in row.transforms},
-                    degrees_per_second: session.rows.map {row in row.degrees_per_second}
-                ).frame(height: 300)
-                
-                VStack(alignment: .leading) {
-                    Text("Notes")
-                        .font(.headline)
-                        .padding(.horizontal)
-                    TextEditor(text: $notes)
-                        .frame(minHeight: 100)
-                        .padding(4)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                        )
-                        .padding(.horizontal)
-                        .onChange(of: notes) { _, newValue in
-                            debounced_update_notes(newValue)
+        if actively_deleting {
+            ProgressView()
+        } else {
+            if let session = session {
+                ScrollView{
+                    VStack {
+                        SessionInfo(session: session)
+                        DemographicInfo(patient_info: session.demographics)
+                        GazeAnglePlot(
+                            transforms: session.rows.map {row in row.transforms},
+                            degrees_per_second: session.rows.map {row in row.degrees_per_second}
+                        ).frame(height: 300)
+                        
+                        VStack(alignment: .leading) {
+                            Text("Notes")
+                                .font(.headline)
+                                .padding(.horizontal)
+                            TextEditor(text: $notes)
+                                .frame(minHeight: 100)
+                                .padding(4)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                                )
+                                .padding(.horizontal)
                         }
+                        
+                        Button(action: {
+                            showing_delete_alert = true
+                        }) {
+                            HStack {
+                                Image(systemName: "trash")
+                                Text("Delete Session")
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.red)
+                            .cornerRadius(10)
+                        }
+                        .padding(.horizontal)
+                        .padding(.top, 20)
+                    }
                 }
+                .onDisappear {
+                    if !actively_deleting {
+                        // Save the current notes immediately
+                        let updated_session = Session(
+                            id: session.id,
+                            demographics: session.demographics,
+                            rows: session.rows,
+                            created: session.created,
+                            notes: notes
+                        )
+                        storage_manager.update_session(updated_session)
+                    }
+                }
+                .alert("Delete Session", isPresented: $showing_delete_alert) {
+                    Button("Cancel", role: .cancel) { }
+                    Button("Delete", role: .destructive) {
+                        delete_session()
+                    }
+                } message: {
+                    Text("Are you sure you want to delete this session? This action cannot be undone.")
+                }
+            } else {
+                ProgressView()
             }
-        }
-        .onDisappear {
-            save_current_notes()
         }
     }
 }

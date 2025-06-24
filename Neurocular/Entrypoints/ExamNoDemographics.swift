@@ -21,11 +21,12 @@ import SwiftUI
 //    }
 //}
 
-struct DevEntrypoint: View {
+struct ExamNoDemographics: View {
     @State private var navigation_path = NavigationPath()
     @State private var storage_manager = StorageManager()
     
     var body: some View {
+        let _ = Self._printChanges()
         NavigationStack(path: $navigation_path) {
             VStack {
                 HStack {
@@ -46,6 +47,9 @@ struct DevEntrypoint: View {
                         .foregroundStyle(.gray)
                     Spacer()
                 } else {
+                    let id_list = storage_manager.session_list.map { session in
+                        session.id
+                    }
                     List {
                         Section(header: Text("Recordings")) {
                             ForEach(storage_manager.session_list) { session in
@@ -53,8 +57,7 @@ struct DevEntrypoint: View {
                                     value: SessionId(id: session.id)
                                 ){
                                     SessionListItem(
-                                        session: session,
-                                        storage_manager: storage_manager
+                                        session: session
                                     )
                                 }
                             }
@@ -66,14 +69,14 @@ struct DevEntrypoint: View {
                 Test(
                     navigation_path: $navigation_path,
                     patient_info: nil,
-                    storage_manager: storage_manager
+                    storage_manager: $storage_manager
                 )
             }
             .navigationDestination(for: SessionId.self) { session_id in
                 SessionDetail(
-                    session: storage_manager.get_session_by_id(session_id.id),
+                    session_id: session_id.id,
                     navigation_path: $navigation_path,
-                    storage_manager: storage_manager
+                    storage_manager: $storage_manager
                 )
             }
         }
@@ -81,5 +84,5 @@ struct DevEntrypoint: View {
 }
 
 #Preview {
-    DevEntrypoint()
+    ExamNoDemographics()
 }

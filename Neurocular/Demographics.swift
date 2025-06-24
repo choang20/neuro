@@ -61,7 +61,7 @@ struct Demographics: View {
     @State private var race: Race = Race.Blank
     @State private var ethnicity: Ethnicity = Ethnicity.Blank
     @Binding var navigation_path: NavigationPath
-    let storage_manager: StorageManager
+    @Binding var storage_manager: StorageManager
     
     var body: some View {
         Form {
@@ -123,12 +123,12 @@ struct Demographics: View {
                     race: race,
                     ethnicity: ethnicity
                 ),
-                storage_manager: storage_manager
+                storage_manager: $storage_manager
             )
         }
     }
 }
 
 #Preview {
-    Demographics(navigation_path: .constant(NavigationPath()), storage_manager: StorageManager())
+    Demographics(navigation_path: .constant(NavigationPath()), storage_manager: .constant(StorageManager()))
 }

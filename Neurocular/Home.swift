@@ -43,8 +43,7 @@ struct Home: View {
                                     value: SessionId(id: session.id)
                                 ){
                                     SessionListItem(
-                                        session: session,
-                                        storage_manager: storage_manager
+                                        session: session
                                     )
                                 }
                             }
@@ -55,14 +54,14 @@ struct Home: View {
             .navigationDestination(for: DemographicsDestination.self) { _ in
                 Demographics(
                     navigation_path: $navigation_path,
-                    storage_manager: storage_manager
+                    storage_manager: $storage_manager
                 )
             }
             .navigationDestination(for: SessionId.self) { session_id in
                 SessionDetail(
-                    session: storage_manager.get_session_by_id(session_id.id),
+                    session_id: session_id.id,
                     navigation_path: $navigation_path,
-                    storage_manager: storage_manager
+                    storage_manager: $storage_manager
                 )
             }
         }

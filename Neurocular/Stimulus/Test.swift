@@ -14,7 +14,7 @@ struct Test: View {
     @State private var rotation_instructions: String = "Please rotate your screen counterclockwise into landscape mode."
     @Binding var navigation_path: NavigationPath
     let patient_info: PatientInfo?
-    let storage_manager: StorageManager
+    @Binding var storage_manager: StorageManager
     
     
     var body: some View {
@@ -37,7 +37,6 @@ struct Test: View {
 //            }
         if !orientation_is_correct {
             Text(rotation_instructions).onRotate { new_orientation in
-                print(new_orientation)
                 switch new_orientation {
                 case .unknown:
                     ()
@@ -68,7 +67,7 @@ struct Test: View {
         } else {
             Stimulus(
                 patient_info: patient_info,
-                storage_manager: storage_manager,
+                storage_manager: $storage_manager,
                 on_completed_test: {test_finished = true}
             )
         }
@@ -101,6 +100,6 @@ extension View {
     Test(
         navigation_path: .constant(NavigationPath()),
         patient_info: nil,
-        storage_manager: StorageManager()
+        storage_manager: .constant(StorageManager())
     )
 }
