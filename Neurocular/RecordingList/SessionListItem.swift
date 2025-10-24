@@ -9,7 +9,7 @@ import SwiftUI
 import AVFoundation
 
 struct SessionListItem: View {
-    let session: Session
+    let exam_metadata: ExamMetadata
     struct MetadataDateFormatter {
         var formatter = DateFormatter()
         
@@ -24,21 +24,21 @@ struct SessionListItem: View {
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text(date_formatter.formatter.string(from: session.created))
+                Text(date_formatter.formatter.string(from: exam_metadata.created))
                 
-                if session.notes.isEmpty {
+                if exam_metadata.notes.isEmpty {
                     Text("No notes")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .italic()
                 } else {
-                    Text(session.notes)
+                    Text(exam_metadata.notes)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
 
-                Text(session.id.prefix(8))
+                Text(exam_metadata.id.prefix(8))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }

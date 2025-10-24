@@ -30,46 +30,31 @@ func calculate_distance_from_screen_vectorized(_ transforms: [Transforms]) -> [F
     transforms.map(calculate_distance_from_screen)
 }
 
-
-struct GazeAngles {
-    let left: Float
-    let right: Float
-}
-
 /**
  Returns the horizontal gaze angles for the left and right eyes in degrees, where positive is to the
  subject's right and negative is to the subject's left.
  */
 func calculate_horizontal_gaze_angle(
-    from_transforms transforms: Transforms
-) -> GazeAngles {
-    GazeAngles(
-        left: horizontal_gaze_angle_for_eye(eye_transforms: transforms.left_eye),
-        right: horizontal_gaze_angle_for_eye(eye_transforms: transforms.right_eye)
+    _ transforms: [Transforms]
+) -> ArrayByEye<Float> {
+    ArrayByEye(
+        left: transforms.map { t in t.left_eye.horizontal_angle},
+        right: transforms.map { t in t.right_eye.horizontal_angle}
     )
 }
 
-func calculate_horizontal_gaze_angle_vectorized(_ transforms: [Transforms]) -> [GazeAngles] {
-    transforms.map(calculate_vertical_gaze_angle)
-}
 
 /**
  Returns the vertical gaze angles for the left and right eyes in degrees, where positive is to the
  subject's right and negative is to the subject's left.
  */
 func calculate_vertical_gaze_angle(
-    from_transforms transforms: Transforms
-) -> GazeAngles {
-    GazeAngles(
-        left: vertical_gaze_angle_for_eye(eye_transforms: transforms.left_eye),
-        right: vertical_gaze_angle_for_eye(eye_transforms: transforms.right_eye)
+    _ transforms: [Transforms]
+) -> ArrayByEye<Float> {
+    ArrayByEye(
+        left: transforms.map { t in t.left_eye.vertical_angle},
+        right: transforms.map { t in t.right_eye.vertical_angle}
     )
-}
-
-func calculate_head_angle(
-    from_transforms transforms: Transforms
-) -> Float {
-    atan(transforms.head[2][0] / transforms.head[2][2]) * 180 / Float.pi
 }
 
 func derivative(of values: [Float], inter_sample_distance: Float) -> [Float] {
@@ -87,16 +72,4 @@ func derivative(of values: [Float], inter_sample_distance: Float) -> [Float] {
     // the length of the input vector
     out.append(out[out.count - 1])
     return out
-}
-
-fileprivate func horizontal_gaze_angle_for_eye(
-    eye_transforms: SerializableMatrix4x4
-) -> Float {
-    atan(eye_transforms[2][0] / eye_transforms[2][2]) * 180 / Float.pi
-}
-
-fileprivate func vertical_gaze_angle_for_eye(
-    eye_transforms: SerializableMatrix4x4
-) -> Float {
-    atan(eye_transforms[2][1] / eye_transforms[2][2]) * 180 / Float.pi
 }

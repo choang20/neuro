@@ -29,7 +29,7 @@ struct Home: View {
                     }
                 }.padding()
                 
-                if storage_manager.session_list.count == 0 {
+                if storage_manager.exams.count == 0 {
                     Divider()
                     Spacer()
                     Text("No Recordings")
@@ -37,13 +37,13 @@ struct Home: View {
                     Spacer()
                 } else {
                     List {
-                        Section(header: Text("Recordings")) {
-                            ForEach(storage_manager.session_list) { session in
+                        Section(header: Text("Exams")) {
+                            ForEach(storage_manager.exams) { exam_metadata in
                                 NavigationLink(
-                                    value: SessionId(id: session.id)
+                                    value: exam_metadata
                                 ){
                                     SessionListItem(
-                                        session: session
+                                        exam_metadata: exam_metadata
                                     )
                                 }
                             }
@@ -57,9 +57,9 @@ struct Home: View {
                     storage_manager: $storage_manager
                 )
             }
-            .navigationDestination(for: SessionId.self) { session_id in
+            .navigationDestination(for: ExamMetadata.self) { exam_metadata in
                 SessionDetail(
-                    session_id: session_id.id,
+                    exam_metadata: exam_metadata,
                     navigation_path: $navigation_path,
                     storage_manager: $storage_manager
                 )

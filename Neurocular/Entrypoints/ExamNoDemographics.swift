@@ -7,20 +7,6 @@
 
 import SwiftUI
 
-// Spatial Data Overlay
-//struct DevEntrypoint: View {
-//    let spatial_emitter: SpatialDataEmitter = SpatialDataEmitter()
-//    @State private var latest_frame: SpatialFrameData = .NoFaceDetected
-//    
-//    var body: some View {
-//        SpatialDataOverlay(frame_data: $latest_frame).task {
-//            for await frame_data in await spatial_emitter.stream {
-//                latest_frame = frame_data
-//            }
-//        }
-//    }
-//}
-
 struct ExamNoDemographics: View {
     @State private var navigation_path = NavigationPath()
     @State private var storage_manager = StorageManager()
@@ -40,24 +26,21 @@ struct ExamNoDemographics: View {
                     }
                 }.padding()
                 
-                if storage_manager.session_list.count == 0 {
+                if storage_manager.exams.count == 0 {
                     Divider()
                     Spacer()
                     Text("No Recordings")
                         .foregroundStyle(.gray)
                     Spacer()
                 } else {
-                    let id_list = storage_manager.session_list.map { session in
-                        session.id
-                    }
                     List {
                         Section(header: Text("Recordings")) {
-                            ForEach(storage_manager.session_list) { session in
+                            ForEach(storage_manager.exams) { exam_metadata in
                                 NavigationLink(
-                                    value: SessionId(id: session.id)
+                                    value: exam_metadata
                                 ){
                                     SessionListItem(
-                                        session: session
+                                        exam_metadata: exam_metadata
                                     )
                                 }
                             }
@@ -66,15 +49,15 @@ struct ExamNoDemographics: View {
                 }
             }
             .navigationDestination(for: TestDestination.self) { _ in
-                Test(
+                StationaryPhoneTest(
                     navigation_path: $navigation_path,
-                    patient_info: nil,
-                    storage_manager: $storage_manager
+                    storage_manager: $storage_manager,
+                    patient_info: nil
                 )
             }
-            .navigationDestination(for: SessionId.self) { session_id in
+            .navigationDestination(for: ExamMetadata.self) { exam_metadata in
                 SessionDetail(
-                    session_id: session_id.id,
+                    exam_metadata: exam_metadata,
                     navigation_path: $navigation_path,
                     storage_manager: $storage_manager
                 )

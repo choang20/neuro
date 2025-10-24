@@ -10,105 +10,96 @@ import SwiftUI
 struct SessionDetail: View {
     @Binding var storage_manager: StorageManager
     @Binding var navigation_path: NavigationPath
-    @State private var notes: String
     @State private var showing_delete_alert = false
-    @State private var session: Session?
+    @State private var exam_metadata: ExamMetadata
     @State private var actively_deleting: Bool = false
+    private var interpolated_frames: [InterpolatedFrame]
     
     
-    init(session_id: String, navigation_path: Binding<NavigationPath>, storage_manager: Binding<StorageManager>) {
+    init(
+        exam_metadata: ExamMetadata,
+        navigation_path: Binding<NavigationPath>,
+        storage_manager: Binding<StorageManager>
+    ) {
         self._storage_manager = storage_manager
         self._navigation_path = navigation_path
-        let maybe_session = storage_manager.wrappedValue.get_session_by_id(session_id)
-        if let session = maybe_session {
-            self.session = session
-            self._notes = State(initialValue: session.notes)
-        } else {
-            self.session = nil
-            self._notes = State(initialValue: "")
-        }
+        self.exam_metadata = exam_metadata
+        let exam_frames = storage_manager.wrappedValue.get_exam_frames_by_id(exam_metadata.id)!
+        self.interpolated_frames = interpolate_frames(exam_frames)
     }
     
-    private func delete_session() {
+    private func delete_exam() {
         actively_deleting = true
-        storage_manager.delete_session(id: session!.id)
+        storage_manager.delete_exam(id: exam_metadata.id)
         navigation_path.removeLast()
     }
+    
+    struct BirthdayDateFormatter {
+        var formatter = DateFormatter()
+        
+        init() {
+            self.formatter.dateStyle = .short
+            self.formatter.timeStyle = .none
+        }
+    }
+    let date_formatter = BirthdayDateFormatter()
     
     var body: some View {
         if actively_deleting {
             ProgressView()
         } else {
-            if let session = session {
-                ScrollView{
+            ScrollView{
+                VStack {
                     VStack {
-                        SessionInfo(session: session)
-                        DemographicInfo(patient_info: session.demographics)
-                        GazeAnglePlot(
-                            transforms: session.rows.map {row in row.transforms},
-                            degrees_per_second: session.rows.map {row in row.degrees_per_second}
-                        ).frame(height: 300)
-                        
-                        VStack(alignment: .leading) {
-                            Text("Notes")
-                                .font(.headline)
-                                .padding(.horizontal)
-                            TextEditor(text: $notes)
-                                .frame(minHeight: 100)
-                                .padding(4)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                                )
-                                .padding(.horizontal)
+                        Text(date_formatter.formatter.string(from: exam_metadata.created))
+                            .font(.title3)
+                            .padding(.bottom)
+                            .padding(.top)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        InfoRow(label: "id", value: exam_metadata.id)
+                    }
+                    .padding()
+                    
+                    PatientInfoView(patient_info: exam_metadata.demographics)
+                    GazeAnglePlot(
+                        interpolated_frames: self.interpolated_frames
+                    ).frame(height: 300)
+                    
+                    Notes(
+                        storage_manager: storage_manager,
+                        exam_metadata: $exam_metadata
+                    )
+                    
+                    Button(action: {
+                        showing_delete_alert = true
+                    }) {
+                        HStack {
+                            Image(systemName: "trash")
+                            Text("Delete Exam")
                         }
-                        
-                        Button(action: {
-                            showing_delete_alert = true
-                        }) {
-                            HStack {
-                                Image(systemName: "trash")
-                                Text("Delete Session")
-                            }
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.red)
-                            .cornerRadius(10)
-                        }
-                        .padding(.horizontal)
-                        .padding(.top, 20)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.red)
+                        .cornerRadius(10)
                     }
+                    .padding(.horizontal)
+                    .padding(.top, 20)
                 }
-                .onDisappear {
-                    if !actively_deleting {
-                        // Save the current notes immediately
-                        let updated_session = Session(
-                            id: session.id,
-                            demographics: session.demographics,
-                            rows: session.rows,
-                            created: session.created,
-                            notes: notes
-                        )
-                        storage_manager.update_session(updated_session)
-                    }
+            }
+            .alert("Delete Exam", isPresented: $showing_delete_alert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Delete", role: .destructive) {
+                    delete_exam()
                 }
-                .alert("Delete Session", isPresented: $showing_delete_alert) {
-                    Button("Cancel", role: .cancel) { }
-                    Button("Delete", role: .destructive) {
-                        delete_session()
-                    }
-                } message: {
-                    Text("Are you sure you want to delete this session? This action cannot be undone.")
-                }
-            } else {
-                ProgressView()
+            } message: {
+                Text("Are you sure you want to delete this exam? This action cannot be undone.")
             }
         }
     }
 }
 
-struct DemographicInfo: View {
+struct PatientInfoView: View {
     let patient_info: PatientInfo?
     
     struct BirthdayDateFormatter {
@@ -142,33 +133,6 @@ struct DemographicInfo: View {
     }
 }
 
-struct SessionInfo: View {
-    let session: Session
-    
-    struct SessionDateFormatter {
-        var formatter = DateFormatter()
-        
-        init() {
-            self.formatter.dateStyle = .long
-            self.formatter.timeStyle = .short
-        }
-    }
-    let date_formatter = SessionDateFormatter()
-    
-    var body: some View {
-//        if app_config.print_changes {let _ = Self._printChanges()}
-        VStack {
-            Text(date_formatter.formatter.string(from: session.created))
-                .font(.title3)
-                .padding(.bottom)
-                .padding(.top)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            InfoRow(label: "id", value: session.id)
-        }
-        .padding()
-    }
-}
-
 struct InfoRow: View {
     let label: String
     let value: String
@@ -183,6 +147,15 @@ struct InfoRow: View {
         }
     }
 }
-//#Preview {
-//    SessionDetail()
-//}
+
+#Preview {
+    let test_data_dir = URL(fileURLWithPath: "/Users/max.taggart/Developer/Ehrenkranz/Neurocular/test_data/exams")
+    let storage_manager = StorageManager(with_base_dir: test_data_dir);
+    let exam_metadata = storage_manager.get_exam_metadata_by_id("c4bee50c-ff9f-4c4e-8034-15bdcd3253dc")!
+    let navigation_path = NavigationPath();
+    SessionDetail(
+        exam_metadata: exam_metadata,
+        navigation_path: .constant(navigation_path),
+        storage_manager: .constant(storage_manager)
+    )
+}

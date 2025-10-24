@@ -113,8 +113,9 @@ struct Demographics: View {
         }
         .navigationTitle("Patient Information")
         .navigationDestination(for: TestDestination.self) { _ in
-            Test(
+            StationaryPhoneTest(
                 navigation_path: $navigation_path,
+                storage_manager: $storage_manager,
                 patient_info: PatientInfo(
                     first_name: first_name,
                     last_name: last_name,
@@ -122,8 +123,7 @@ struct Demographics: View {
                     sex: sex,
                     race: race,
                     ethnicity: ethnicity
-                ),
-                storage_manager: $storage_manager
+                )
             )
         }
     }
