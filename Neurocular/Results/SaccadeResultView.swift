@@ -84,6 +84,7 @@ struct SaccadeResultView: View {
             Text("Saccades Result")
                 .font(.title3)
                 .padding(.horizontal)
+                .padding(.top, 8)
 
             // Split into 3 equal time windows and render 3 plots labeled with target speeds
             ForEach(0..<3) { idx in
@@ -92,6 +93,7 @@ struct SaccadeResultView: View {
             }
         }
         .padding(.bottom)
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     private func slice(_ arr: [Sample], segment: Int) -> [Sample] {
@@ -112,6 +114,7 @@ private struct SaccadePanel: View {
                 .font(.headline)
                 .padding(.leading)
 
+            // Degrees chart (fixed domain)
             Chart {
                 // Target position (deg)
                 ForEach(slice) { s in
@@ -123,13 +126,6 @@ private struct SaccadePanel: View {
                     LineMark(x: .value("t", s.t), y: .value("deg", s.eyeDeg))
                         .foregroundStyle(Color.blue)
                 }
-                // Eye velocity (deg/s)
-                ForEach(slice) { s in
-                    LineMark(x: .value("t", s.t), y: .value("vel", s.eyeVel))
-                        .foregroundStyle(Color.green)
-                        .symbol(Circle())
-                        .interpolationMethod(.linear)
-                }
             }
             .chartYAxis {
                 AxisMarks(position: .leading, values: [-45, -30, -15, 0, 15, 30, 45]) { value in
@@ -139,7 +135,21 @@ private struct SaccadePanel: View {
             }
             .chartXAxisLabel("Seconds")
             .chartYAxisLabel("Degrees")
+            .chartYScale(domain: -45...45)
             .frame(height: 220)
+            .padding(.horizontal)
+
+            // Velocity chart (separate panel)
+            Chart {
+                ForEach(slice) { s in
+                    LineMark(x: .value("t", s.t), y: .value("vel", s.eyeVel))
+                        .foregroundStyle(Color.green)
+                }
+            }
+            .chartXAxisLabel("Seconds")
+            .chartYAxisLabel("Velocity (deg/s)")
+            .chartYScale(domain: -200...200)
+            .frame(height: 120)
             .padding(.horizontal)
         }
     }
