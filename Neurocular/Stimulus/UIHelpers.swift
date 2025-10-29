@@ -57,13 +57,11 @@ func estimatedPPI() -> CGFloat {
 }
 
 /**
- Returns the target dot diameter in pixels for exactly 1 degree visual angle at
- a 60 cm viewing distance.
- diameter_mm = 2 * distance_mm * tan(0.5°)
+ Returns the target dot diameter in pixels sized to 8.5 mm (midpoint of 8–9 mm)
+ to match the clinical request. This corresponds to ~0.8° at 60 cm.
  */
 func targetDotDiameterPixels() -> CGFloat {
-    let distanceMM: CGFloat = 600.0
-    let diameterMM: CGFloat = 2.0 * distanceMM * CGFloat(tan(Double.pi / 360.0)) // 0.5° in radians
+    let diameterMM: CGFloat = 8.5
     let inches = diameterMM / 25.4
     return inches * estimatedPPI()
 }
