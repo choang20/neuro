@@ -61,21 +61,18 @@ struct NystagmusScreen: View {
 
     private func calibrateBaseline(seconds: Double = 0.8) async {
         var samples: [Float] = []
-        let start = Date()
-        let deadline = start.addingTimeInterval(seconds)
-        let group = DispatchGroup()
-        group.enter()
         var cancellable: AnyCancellable?
         cancellable = spatial_emitter.subject.sink { frame in
-            if Date() > deadline { cancellable?.cancel(); group.leave(); return }
             if case .FaceDetected(let f) = frame {
-                let raw = headYawDegreesRelativeToCamera(f.transforms)
                 if !f.wild_guess {
+                    let raw = headYawDegreesRelativeToCamera(f.transforms)
                     samples.append(raw)
                 }
             }
         }
-        group.wait()
+        // Non-blocking wait
+        try? await Task.sleep(for: .seconds(seconds))
+        cancellable?.cancel()
         if samples.count > 3 {
             let sorted = samples.sorted()
             let mid = sorted[sorted.count / 2]
