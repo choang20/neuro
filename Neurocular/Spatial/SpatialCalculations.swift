@@ -116,15 +116,17 @@ final class HeadYawTracker {
         filteredDeg = 0
     }
     
+    func setBaseline(_ value: Float) {
+        baselineDeg = value
+        filteredDeg = 0
+    }
+    
     func update(with transforms: Transforms, isTracked: Bool) -> Float? {
         guard isTracked else { return nil }
         let raw = headYawDegreesRelativeToCamera(transforms)
-        if baselineDeg == nil {
-            baselineDeg = raw
-            filteredDeg = 0
-            return 0
-        }
-        let zeroed = raw - baselineDeg!
+        // If baseline not set, do not infer it from the first frame; return nil until caller calibrates
+        guard let baseline = baselineDeg else { return nil }
+        let zeroed = raw - baseline
         filteredDeg = alpha * zeroed + (1 - alpha) * filteredDeg
         return filteredDeg
     }

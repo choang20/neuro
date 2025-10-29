@@ -34,18 +34,54 @@ struct NystagmusScreen: View {
     }
 
     private func waitUntil(_ predicate: @escaping (Float) -> Bool) async {
+        await waitUntilStable(predicate: predicate, requiredFrames: 8)
+    }
+
+    private func waitUntilStable(predicate: @escaping (Float) -> Bool, requiredFrames: Int) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             var cancellable: AnyCancellable?
+            var count = 0
             cancellable = spatial_emitter.subject.sink { frame in
                 if case .FaceDetected(let f) = frame {
                     if let deg = HeadYawTracker.shared.update(with: f.transforms, isTracked: !f.wild_guess) {
                         if predicate(deg) {
-                            cancellable?.cancel()
-                            continuation.resume()
+                            count += 1
+                            if count >= requiredFrames {
+                                cancellable?.cancel()
+                                continuation.resume()
+                            }
+                        } else {
+                            count = 0
                         }
                     }
                 }
             }
+        }
+    }
+
+    private func calibrateBaseline(seconds: Double = 0.8) async {
+        var samples: [Float] = []
+        let start = Date()
+        let deadline = start.addingTimeInterval(seconds)
+        let group = DispatchGroup()
+        group.enter()
+        var cancellable: AnyCancellable?
+        cancellable = spatial_emitter.subject.sink { frame in
+            if Date() > deadline { cancellable?.cancel(); group.leave(); return }
+            if case .FaceDetected(let f) = frame {
+                let raw = headYawDegreesRelativeToCamera(f.transforms)
+                if !f.wild_guess {
+                    samples.append(raw)
+                }
+            }
+        }
+        group.wait()
+        if samples.count > 3 {
+            let sorted = samples.sorted()
+            let mid = sorted[sorted.count / 2]
+            HeadYawTracker.shared.setBaseline(mid)
+        } else if let first = samples.first {
+            HeadYawTracker.shared.setBaseline(first)
         }
     }
 
@@ -57,12 +93,14 @@ struct NystagmusScreen: View {
     private func runProgram() {
         Task {
             HeadYawTracker.shared.reset()
+            // Calibrate baseline with a short median window
+            await calibrateBaseline()
             speak("Slowly move your head as far as possible to the left while you look at the red dot.")
-            await waitUntil { $0 <= -45 }
+            await waitUntilStable(predicate: { $0 <= -44 }, requiredFrames: 8)
             speak("Hold this position; keep looking at the red dot.")
             await countToFive()
             speak("Now slowly turn your head all the way to the right while you look at the red dot.")
-            await waitUntil { $0 >= 45 }
+            await waitUntilStable(predicate: { $0 >= 44 }, requiredFrames: 8)
             speak("Hold this position; keep looking at the red dot.")
             await countToFive()
             // Optionally repeat cycles as needed
