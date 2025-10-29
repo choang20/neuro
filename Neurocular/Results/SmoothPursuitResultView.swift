@@ -14,7 +14,7 @@ struct SmoothPursuitResultView: View {
     private let plotData: [PlotValueByEye]
     private let targetData: [PlotValue]
     private let nFrames: Int
-    @State private var scaleToFit: Bool = false
+    @State private var scaleToFit: Bool = true
 
     init(examId: ExamId, navigation_path: Binding<NavigationPath>, storage_manager: Binding<StorageManager>) {
         self.examId = examId
@@ -98,13 +98,20 @@ struct SmoothPursuitResultView: View {
 
     private func yDomain() -> ClosedRange<Double> {
         if scaleToFit {
-            // Compute min/max from data with padding
+            // Robust auto-fit using P05/P95 to avoid outliers
             let eyes = plotData.map { Double($0.value) }
             let target = targetData.map { Double($0.value) }
-            let all = eyes + target
-            guard let minV = all.min(), let maxV = all.max() else { return -20...20 }
-            let pad = max(1.0, 0.1 * (maxV - minV))
-            return (minV - pad)...(maxV + pad)
+            let all = (eyes + target).sorted()
+            if all.isEmpty { return -20...20 }
+            func percentile(_ p: Double) -> Double {
+                let idx = min(max(Int(Double(all.count - 1) * p), 0), all.count - 1)
+                return all[idx]
+            }
+            let p05 = percentile(0.05)
+            let p95 = percentile(0.95)
+            let span = max(2.0, p95 - p05) // ensure at least a small span
+            let pad = max(0.5, 0.1 * span)
+            return (p05 - pad)...(p95 + pad)
         }
         // Tighter default if amplitude small
         let targetAmp = (targetData.map { Double($0.value) }.max() ?? 0) - (targetData.map { Double($0.value) }.min() ?? 0)
