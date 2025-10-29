@@ -12,6 +12,7 @@ struct SmoothPursuitResultView: View {
     @Binding var storage_manager: StorageManager
 
     private let plotData: [PlotValueByEye]
+    private let targetData: [PlotValue]
     private let nFrames: Int
 
     init(examId: ExamId, navigation_path: Binding<NavigationPath>, storage_manager: Binding<StorageManager>) {
@@ -23,8 +24,37 @@ struct SmoothPursuitResultView: View {
         let transforms = interpolated.map { $0.transforms.transforms }
         let calibrated = calculate_horizontal_gaze_angle(transforms).map_by_eye(apply_angle_calibration)
         let biased = bias_right_eye(calibrated)
-        self.plotData = biased.consume_with(tidy_gaze_angles)
+        // Light smoothing (moving average window = 5 frames ~83ms at 60Hz)
+        func smooth(_ xs: [Float], window: Int) -> [Float] {
+            guard window > 1 else { return xs }
+            var out: [Float] = []
+            out.reserveCapacity(xs.count)
+            var buf: [Float] = []
+            for x in xs {
+                buf.append(x)
+                if buf.count > window { buf.removeFirst() }
+                let avg = buf.reduce(0, +) / Float(buf.count)
+                out.append(avg)
+            }
+            return out
+        }
+        let smoothed = biased.map_array_by_eye { smooth($0, window: 5) }
+        self.plotData = smoothed.consume_with(tidy_gaze_angles)
         self.nFrames = transforms.count
+
+        // Compute target angle (deg) from target pixel X and distance per frame
+        let ppi: Double = 460.0
+        let midX = Double(UIScreen.main.bounds.midX)
+        var target: [PlotValue] = []
+        target.reserveCapacity(interpolated.count)
+        for (i, f) in interpolated.enumerated() {
+            let pxX = Double(f.position.x)
+            let inchesX = (pxX - midX) / ppi
+            let distInches = Double(calculate_distance_from_screen(from_transforms: f.transforms.transforms))
+            let deg = atan2(inchesX, max(distInches, 1e-3)) * 180.0 / .pi
+            target.append(PlotValue(frame_index: i, elapsed: Double(i) / 60.0, value: Float(deg)))
+        }
+        self.targetData = target
     }
 
     var body: some View {
@@ -39,15 +69,22 @@ struct SmoothPursuitResultView: View {
             }
             .padding(.horizontal)
 
-            Chart(plotData) {
-                LineMark(
-                    x: .value("Time", $0.elapsed),
-                    y: .value("Gaze Angle", $0.value)
-                )
-                .foregroundStyle(by: .value("Eye", $0.eye))
+            Chart {
+                // Eye traces (smoothed)
+                ForEach(plotData) { p in
+                    LineMark(x: .value("Time", p.elapsed), y: .value("Gaze Angle", p.value))
+                        .foregroundStyle(by: .value("Eye", p.eye))
+                }
+                // Target angle (triangular)
+                ForEach(targetData) { t in
+                    LineMark(x: .value("Time", t.elapsed), y: .value("Gaze Angle", t.value))
+                        .foregroundStyle(Color.red.opacity(0.6))
+                        .lineStyle(StrokeStyle(lineWidth: 2))
+                }
             }
             .chartXAxisLabel("Seconds")
             .chartYAxisLabel("Horizontal Gaze Angle (°)")
+            .chartYScale(domain: -20...20)
             .chartXScale(domain: [0, Float(nFrames) / 60.0])
             .padding()
         }
