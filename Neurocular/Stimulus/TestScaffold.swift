@@ -43,7 +43,10 @@ struct TestScaffold<Stimulus: View>: View {
                                 Button("start") {
                                     hasStarted = true
                                     speak(instructionsText)
-                                    startTest()
+                                    // Defer start until stimulus view has appeared and subscriptions are attached
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                        startTest()
+                                    }
                                 }
                                 .padding(10)
                                 .foregroundColor(.white)
@@ -90,7 +93,9 @@ struct TestScaffold<Stimulus: View>: View {
                             Button("start") {
                                 hasStarted = true
                                 speak(instructionsText)
-                                startTest()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                    startTest()
+                                }
                             }
                             .padding(10)
                             .foregroundColor(.white)

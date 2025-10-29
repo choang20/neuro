@@ -67,7 +67,12 @@ struct SmoothPursuitScreen: View {
             },
             startTest: { runProgram() },
             onFinish: {
-                navigation_path.removeLast(navigation_path.count)
+                if case .Finished(.success(let id)) = recorder.status,
+                   let _ = storage_manager.get_exam_metadata_by_id(id) {
+                    navigation_path.append(ResultRoute(examId: id, kind: "smooth"))
+                } else {
+                    navigation_path.removeLast(navigation_path.count)
+                }
             },
             layout: .stacked
         )

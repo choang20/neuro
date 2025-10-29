@@ -66,6 +66,24 @@ struct OculoMetrixHome: View {
                     EmptyView()
                 }
             }
+            .navigationDestination(for: ResultRoute.self) { route in
+                switch route.kind {
+                case "smooth":
+                    SmoothPursuitResultView(
+                        examId: route.examId,
+                        navigation_path: $navigation_path,
+                        storage_manager: $storage_manager
+                    )
+                case "saccades":
+                    SaccadeResultView(
+                        examId: route.examId,
+                        navigation_path: $navigation_path,
+                        storage_manager: $storage_manager
+                    )
+                default:
+                    EmptyView()
+                }
+            }
         }
     }
 }
