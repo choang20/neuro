@@ -68,7 +68,7 @@ struct Measurements {
             )
             measurements = Measurements(
                 head_distance: pad(text: String(format: "%.1f\"", distance), length: 6),
-                head_angle: pad(text: String(format: "%.0f°", round(face_data.transforms.head.horizontal_angle)), length: 6),
+                head_angle: pad(text: String(format: "%.0f°", round(headYawDegreesRelativeToCamera(face_data.transforms))), length: 6),
                 left_eye_angle: pad(text: String(format: "%.0f°", round(face_data.transforms.left_eye.horizontal_angle)), length: 6),
                 right_eye_angle: pad(text: String(format: "%.0f°", round(face_data.transforms.left_eye.horizontal_angle)), length: 6)
             )
