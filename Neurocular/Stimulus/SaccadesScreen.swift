@@ -35,16 +35,30 @@ struct SaccadesScreen: View {
 
     private func runProgram() {
         Task {
-            let y = UIScreen.main.bounds.height / 2
-            let minX: CGFloat = 30
-            let maxX: CGFloat = UIScreen.main.bounds.width - 30
-            for _ in 0..<8 {
-                let x = CGFloat.random(in: minX...maxX)
-                dot_position_subject.send(TimestampedValue.from(CGPoint(x: x, y: y)))
-                dot_speed_subject.send(TimestampedValue.from(0))
-                try? await Task.sleep(for: .seconds(2))
+            // Drive three speed blocks at 5/15/30 deg/s using moving stimulus
+            var lastInches: Float = 20
+            let speedsDeg: [Float] = [5, 15, 30]
+            let ppi: Float = 460
+            let travel = Float(UIScreen.main.bounds.width - 40)
+
+            let cancel = spatial_emitter.subject.sink { frame in
+                if case .FaceDetected(let f) = frame {
+                    lastInches = calculate_distance_from_screen(from_transforms: f.transforms)
+                }
             }
+
+            for deg in speedsDeg {
+                let pxPerSec = max(1, ppi * lastInches * tan(Float.pi / 180.0) * deg)
+                let secondsPerExcursion = travel / pxPerSec
+                // Two round trips per block
+                for _ in 0..<2 {
+                    dot_speed_subject.send(TimestampedValue.from(CGFloat(pxPerSec)))
+                    try? await Task.sleep(for: .seconds(Double(secondsPerExcursion * 2)))
+                }
+            }
+
             dot_speed_subject.send(completion: .finished)
+            cancel.cancel()
         }
     }
 
@@ -54,12 +68,12 @@ struct SaccadesScreen: View {
             instructionsText: "Do not wear glasses. A red dot will appear at random locations on the screen. Don't move your head as you look at the red dot with your eyes. A yellow button will appear when the test is completed.",
             recordingStatus: recorder.status,
             makeStimulus: {
-                SaccadeStimulusView(positionPublisher: dot_position_subject.eraseToAnyPublisher())
+                BackAndForthStimulus(
+                    dot_speed_publisher: dot_speed_subject.eraseToAnyPublisher(),
+                    dot_position_subject: dot_position_subject
+                )
                     .onAppear {
-                        // Initialize at center and start recording
-                        let center = CGPoint(x: UIScreen.main.bounds.midX, y: UIScreen.main.bounds.midY)
-                        dot_position_subject.send(TimestampedValue.from(center))
-                        dot_speed_subject.send(TimestampedValue.from(0))
+                        // Start recording when stimulus appears
                         recorder.record()
                     }
             },

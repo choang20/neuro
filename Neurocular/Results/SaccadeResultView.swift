@@ -20,6 +20,7 @@ struct SaccadeResultView: View {
     }
 
     private let samples: [Sample]
+    private let speedDeg: [Double]
 
     init(examId: ExamId, navigation_path: Binding<NavigationPath>, storage_manager: Binding<StorageManager>) {
         self.examId = examId
@@ -77,6 +78,18 @@ struct SaccadeResultView: View {
             tmp.append(Sample(t: Double(i) * dt, targetDeg: targetDeg[i], eyeDeg: eyeDeg[i], eyeVel: eyeVel[i]))
         }
         self.samples = tmp
+        // Convert recorded speed (px/s) to deg/s at each frame using distance at that frame
+        // Use interpolated frames to map speeds at spatial timestamps
+        let interp = interpolate_frames(frames)
+        let ppi: Double = 460.0
+        var sdeg: [Double] = []
+        sdeg.reserveCapacity(interp.count)
+        for f in interp {
+            let inches = Double(calculate_distance_from_screen(from_transforms: f.transforms.transforms))
+            let k = max(ppi * inches * tan(.pi / 180.0), 1e-6)
+            sdeg.append(f.speed / k)
+        }
+        self.speedDeg = sdeg
     }
 
     var body: some View {
@@ -86,21 +99,38 @@ struct SaccadeResultView: View {
                 .padding(.horizontal)
                 .padding(.top, 8)
 
-            // Split into 3 equal time windows and render 3 plots labeled with target speeds
-            ForEach(0..<3) { idx in
-                SaccadePanel(title: ["5°/s", "15°/s", "30°/s"][idx],
-                             slice: slice(samples, segment: idx))
-            }
+            SaccadePanel(title: "5°/s", slice: segmentSlice(target: 5))
+            SaccadePanel(title: "15°/s", slice: segmentSlice(target: 15))
+            SaccadePanel(title: "30°/s", slice: segmentSlice(target: 30))
         }
         .padding(.bottom)
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func slice(_ arr: [Sample], segment: Int) -> [Sample] {
-        let third = max(arr.count / 3, 1)
-        let start = segment * third
-        let end = segment == 2 ? arr.count : min(start + third, arr.count)
-        return Array(arr[start..<end])
+    private func segmentSlice(target: Double) -> [Sample] {
+        // Find the longest contiguous window where |speedDeg - target| <= tol for >= minDur seconds
+        let tol = 2.0
+        let minFrames = Int(1.5 * 60.0) // at least 1.5s
+        var bestRange: Range<Int>? = nil
+        var i = 0
+        while i < speedDeg.count {
+            if abs(speedDeg[i] - target) <= tol {
+                let start = i
+                while i < speedDeg.count && abs(speedDeg[i] - target) <= tol { i += 1 }
+                let end = i
+                if end - start >= minFrames {
+                    if bestRange == nil || (end - start) > (bestRange!.count) {
+                        bestRange = start..<end
+                    }
+                }
+            } else {
+                i += 1
+            }
+        }
+        guard let r = bestRange else { return [] }
+        // Normalize time to start at 0 for the slice
+        let t0 = samples[r.lowerBound].t
+        return samples[r].map { s in Sample(t: s.t - t0, targetDeg: s.targetDeg, eyeDeg: s.eyeDeg, eyeVel: s.eyeVel) }
     }
 }
 
