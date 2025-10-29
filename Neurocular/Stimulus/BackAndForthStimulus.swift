@@ -87,12 +87,21 @@ class MovingCircleScene: SKScene {
         backgroundColor = .white
 
         // Create red circle
+        let diameter = targetDotDiameterPixels()
+        radius = diameter / 2
         circleNode = SKShapeNode(circleOfRadius: radius)
         circleNode.fillColor = .red
         circleNode.strokeColor = .clear
         y = round(size.height / 2)
         circleNode.position = CGPoint(x: radius, y: y)
         addChild(circleNode)
+
+        // Add black center dot (~25% diameter)
+        let centerNode = SKShapeNode(circleOfRadius: radius * 0.25)
+        centerNode.fillColor = .black
+        centerNode.strokeColor = .clear
+        centerNode.position = CGPoint(x: 0, y: 0)
+        circleNode.addChild(centerNode)
 
         // Animate to the right side of the screen
         start_x = radius

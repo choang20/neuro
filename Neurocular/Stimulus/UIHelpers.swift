@@ -49,4 +49,23 @@ func speakQueued(_ phrases: [String], rate: Float = AVSpeechUtteranceDefaultSpee
     }
 }
 
+// MARK: - Target dot sizing helpers
+
+func estimatedPPI() -> CGFloat {
+    // iPhone 14/15 class devices ~460 ppi. Use as a safe default.
+    return 460.0
+}
+
+/**
+ Returns the desired target dot diameter in pixels. The clinical request is for
+ approximately 1 degree visual angle at 60cm, which corresponds to ~10.5mm.
+ The product requirement specified 8–9mm, so we clamp to that window.
+ */
+func targetDotDiameterPixels() -> CGFloat {
+    let mmFromOneDegreeAt60cm: CGFloat = 2 * 600 * CGFloat(tan(Double.pi / 360.0)) / 1.0 // ≈ 10.47mm
+    let mmClamped = min(max(mmFromOneDegreeAt60cm, 8.0), 9.0) // enforce 8–9mm window
+    let inches = mmClamped / 25.4
+    return inches * estimatedPPI()
+}
+
 

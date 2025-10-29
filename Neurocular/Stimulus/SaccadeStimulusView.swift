@@ -17,10 +17,13 @@ struct SaccadeStimulusView: View {
                 .fill(.white)
                 .frame(maxWidth: .infinity, maxHeight: 300)
                 .overlay {
-                    Circle()
-                        .fill(.red)
-                        .frame(width: 40, height: 40)
-                        .position(position)
+                    let d = targetDotDiameterPixels()
+                    ZStack {
+                        Circle().fill(.red)
+                        Circle().fill(.black).frame(width: d * 0.25, height: d * 0.25)
+                    }
+                    .frame(width: d, height: d)
+                    .position(position)
                 }
         }
         .onReceive(positionPublisher) { v in

@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct StationaryStimulus: View {
-    let diameter: CGFloat = 30
+    let diameter: CGFloat = targetDotDiameterPixels()
     var body: some View {
         VStack {
             Rectangle()
@@ -17,9 +17,11 @@ struct StationaryStimulus: View {
                 .overlay {
                     VStack {
                         Spacer()
-                        Circle()
-                            .fill(.blue)
-                            .frame(width: diameter, height: diameter)
+                        ZStack {
+                            Circle().fill(.red)
+                            Circle().fill(.black).frame(width: diameter * 0.25, height: diameter * 0.25)
+                        }
+                        .frame(width: diameter, height: diameter)
                             .padding(.bottom)
                             .padding(.top)
                         Text("Recording is active.")
