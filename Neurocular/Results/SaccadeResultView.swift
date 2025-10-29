@@ -92,6 +92,7 @@ struct SaccadeResultView: View {
     }
 
     var body: some View {
+        ScrollView {
         VStack(alignment: .leading, spacing: 16) {
             Text("Saccades Result")
                 .font(.title3)
@@ -101,12 +102,13 @@ struct SaccadeResultView: View {
             // Top spacer to avoid any overlap with nav bar on compact devices
             Rectangle().fill(Color.clear).frame(height: 8)
 
-            SaccadePanel(title: "5°/s", slice: segmentSlice(target: 5))
-            SaccadePanel(title: "15°/s", slice: segmentSlice(target: 15))
-            SaccadePanel(title: "30°/s", slice: segmentSlice(target: 30))
+            SaccadePanel(title: "5°/s", slice: segmentOrThird(target: 5, index: 0))
+            SaccadePanel(title: "15°/s", slice: segmentOrThird(target: 15, index: 1))
+            SaccadePanel(title: "30°/s", slice: segmentOrThird(target: 30, index: 2))
         }
         .padding(.bottom)
         .navigationBarTitleDisplayMode(.inline)
+        }
     }
 
     private func segmentSlice(target: Double) -> [Sample] {
@@ -133,6 +135,19 @@ struct SaccadeResultView: View {
         // Normalize time to start at 0 for the slice
         let t0 = samples[r.lowerBound].t
         return samples[r].map { s in Sample(t: s.t - t0, targetDeg: s.targetDeg, eyeDeg: s.eyeDeg, eyeVel: s.eyeVel) }
+    }
+
+    private func thirdSlice(_ idx: Int) -> [Sample] {
+        let third = max(samples.count / 3, 1)
+        let start = idx * third
+        let end = idx == 2 ? samples.count : min(start + third, samples.count)
+        let t0 = samples[start].t
+        return Array(samples[start..<end]).map { s in Sample(t: s.t - t0, targetDeg: s.targetDeg, eyeDeg: s.eyeDeg, eyeVel: s.eyeVel) }
+    }
+
+    private func segmentOrThird(target: Double, index: Int) -> [Sample] {
+        let seg = segmentSlice(target: target)
+        return seg.isEmpty ? thirdSlice(index) : seg
     }
 }
 

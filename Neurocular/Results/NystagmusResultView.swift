@@ -50,6 +50,7 @@ struct NystagmusResultView: View {
     }
 
     var body: some View {
+        ScrollView {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Nystagmus Result")
@@ -74,6 +75,7 @@ struct NystagmusResultView: View {
             .padding(.horizontal)
         }
         .padding(.bottom)
+        }
     }
 
     @ViewBuilder

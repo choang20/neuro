@@ -58,6 +58,7 @@ struct SmoothPursuitResultView: View {
     }
 
     var body: some View {
+        ScrollView {
         VStack(alignment: .leading) {
             HStack {
                 Text("Smooth Pursuit Result")
@@ -87,6 +88,7 @@ struct SmoothPursuitResultView: View {
             .chartYScale(domain: -20...20)
             .chartXScale(domain: [0, Float(nFrames) / 60.0])
             .padding()
+        }
         }
     }
 }
