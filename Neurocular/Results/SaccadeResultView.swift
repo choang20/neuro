@@ -81,7 +81,6 @@ struct SaccadeResultView: View {
         // Convert recorded speed (px/s) to deg/s at each frame using distance at that frame
         // Use interpolated frames to map speeds at spatial timestamps
         let interp = interpolate_frames(frames)
-        let ppi: Double = 460.0
         var sdeg: [Double] = []
         sdeg.reserveCapacity(interp.count)
         for f in interp {
