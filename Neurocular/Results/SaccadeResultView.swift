@@ -123,13 +123,12 @@ private struct SaccadePanel: View {
                     LineMark(x: .value("t", s.t), y: .value("deg", s.eyeDeg))
                         .foregroundStyle(Color.blue)
                 }
-                // Eye velocity (deg/s) on trailing axis
+                // Eye velocity (deg/s)
                 ForEach(slice) { s in
                     LineMark(x: .value("t", s.t), y: .value("vel", s.eyeVel))
                         .foregroundStyle(Color.green)
                         .symbol(Circle())
                         .interpolationMethod(.linear)
-                        .yAxis(.trailing)
                 }
             }
             .chartYAxis {
@@ -138,12 +137,8 @@ private struct SaccadePanel: View {
                     AxisValueLabel { Text("\(value.as(Int.self)!)°") }
                 }
             }
-            .chartYAxis(.trailing) {
-                AxisMarks(position: .trailing)
-            }
             .chartXAxisLabel("Seconds")
-            .chartYAxisLabel(position: .leading, alignment: .center) { Text("Degrees") }
-            .chartYAxisLabel(position: .trailing, alignment: .center) { Text("Velocity") }
+            .chartYAxisLabel("Degrees")
             .frame(height: 220)
             .padding(.horizontal)
         }
