@@ -63,7 +63,10 @@ func estimatedPPI() -> CGFloat {
 func targetDotDiameterPixels() -> CGFloat {
     let diameterMM: CGFloat = 8.5
     let inches = diameterMM / 25.4
-    return inches * estimatedPPI()
+    let pixels = inches * estimatedPPI()
+    // Convert device pixels to SwiftUI points
+    let scale = UIScreen.main.scale
+    return pixels / scale
 }
 
 
