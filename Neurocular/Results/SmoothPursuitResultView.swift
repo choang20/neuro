@@ -14,6 +14,7 @@ struct SmoothPursuitResultView: View {
     private let plotData: [PlotValueByEye]
     private let targetData: [PlotValue]
     private let nFrames: Int
+    @State private var scaleToFit: Bool = false
 
     init(examId: ExamId, navigation_path: Binding<NavigationPath>, storage_manager: Binding<StorageManager>) {
         self.examId = examId
@@ -64,6 +65,9 @@ struct SmoothPursuitResultView: View {
                 Text("Smooth Pursuit Result")
                     .font(.title3)
                 Spacer()
+                Image(systemName: "square.resize")
+                    .foregroundStyle(.gray)
+                    .onTapGesture { scaleToFit.toggle() }
                 Button("Next") {
                     navigation_path.append(ResultRoute(examId: examId, kind: "saccades"))
                 }
@@ -85,11 +89,27 @@ struct SmoothPursuitResultView: View {
             }
             .chartXAxisLabel("Seconds")
             .chartYAxisLabel("Horizontal Gaze Angle (°)")
-            .chartYScale(domain: -20...20)
+            .chartYScale(domain: yDomain())
             .chartXScale(domain: [0, Float(nFrames) / 60.0])
             .padding()
         }
         }
+    }
+
+    private func yDomain() -> ClosedRange<Double> {
+        if scaleToFit {
+            // Compute min/max from data with padding
+            let eyes = plotData.map { Double($0.value) }
+            let target = targetData.map { Double($0.value) }
+            let all = eyes + target
+            guard let minV = all.min(), let maxV = all.max() else { return -20...20 }
+            let pad = max(1.0, 0.1 * (maxV - minV))
+            return (minV - pad)...(maxV + pad)
+        }
+        // Tighter default if amplitude small
+        let targetAmp = (targetData.map { Double($0.value) }.max() ?? 0) - (targetData.map { Double($0.value) }.min() ?? 0)
+        if targetAmp < 10 { return -5...5 }
+        return -20...20
     }
 }
 

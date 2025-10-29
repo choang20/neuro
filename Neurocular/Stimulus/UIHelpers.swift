@@ -57,14 +57,14 @@ func estimatedPPI() -> CGFloat {
 }
 
 /**
- Returns the desired target dot diameter in pixels. The clinical request is for
- approximately 1 degree visual angle at 60cm, which corresponds to ~10.5mm.
- The product requirement specified 8–9mm, so we clamp to that window.
+ Returns the target dot diameter in pixels for exactly 1 degree visual angle at
+ a 60 cm viewing distance.
+ diameter_mm = 2 * distance_mm * tan(0.5°)
  */
 func targetDotDiameterPixels() -> CGFloat {
-    let mmFromOneDegreeAt60cm: CGFloat = 2 * 600 * CGFloat(tan(Double.pi / 360.0)) / 1.0 // ≈ 10.47mm
-    let mmClamped = min(max(mmFromOneDegreeAt60cm, 8.0), 9.0) // enforce 8–9mm window
-    let inches = mmClamped / 25.4
+    let distanceMM: CGFloat = 600.0
+    let diameterMM: CGFloat = 2.0 * distanceMM * CGFloat(tan(Double.pi / 360.0)) // 0.5° in radians
+    let inches = diameterMM / 25.4
     return inches * estimatedPPI()
 }
 
