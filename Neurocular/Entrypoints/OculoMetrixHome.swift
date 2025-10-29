@@ -80,6 +80,12 @@ struct OculoMetrixHome: View {
                         navigation_path: $navigation_path,
                         storage_manager: $storage_manager
                     )
+                case "nystagmus":
+                    NystagmusResultView(
+                        examId: route.examId,
+                        navigation_path: $navigation_path,
+                        storage_manager: $storage_manager
+                    )
                 default:
                     EmptyView()
                 }
