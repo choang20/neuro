@@ -98,6 +98,9 @@ struct SaccadeResultView: View {
                 .padding(.horizontal)
                 .padding(.top, 8)
 
+            // Top spacer to avoid any overlap with nav bar on compact devices
+            Rectangle().fill(Color.clear).frame(height: 8)
+
             SaccadePanel(title: "5°/s", slice: segmentSlice(target: 5))
             SaccadePanel(title: "15°/s", slice: segmentSlice(target: 15))
             SaccadePanel(title: "30°/s", slice: segmentSlice(target: 30))
@@ -148,14 +151,18 @@ private struct SaccadePanel: View {
                 // Target position (deg)
                 ForEach(slice) { s in
                     LineMark(x: .value("t", s.t), y: .value("deg", s.targetDeg))
-                        .foregroundStyle(Color.red)
+                        .foregroundStyle(by: .value("Series", "Target"))
                 }
                 // Eye position (deg)
                 ForEach(slice) { s in
                     LineMark(x: .value("t", s.t), y: .value("deg", s.eyeDeg))
-                        .foregroundStyle(Color.blue)
+                        .foregroundStyle(by: .value("Series", "Eye"))
                 }
             }
+            .chartForegroundStyleScale([
+                "Target": .red,
+                "Eye": .blue
+            ])
             .chartYAxis {
                 AxisMarks(position: .leading, values: [-45, -30, -15, 0, 15, 30, 45]) { value in
                     AxisGridLine()
@@ -165,6 +172,7 @@ private struct SaccadePanel: View {
             .chartXAxisLabel("Seconds")
             .chartYAxisLabel("Degrees")
             .chartYScale(domain: -45...45)
+            .chartLegend(position: .top, alignment: .leading)
             .frame(height: 220)
             .padding(.horizontal)
 
@@ -172,12 +180,14 @@ private struct SaccadePanel: View {
             Chart {
                 ForEach(slice) { s in
                     LineMark(x: .value("t", s.t), y: .value("vel", s.eyeVel))
-                        .foregroundStyle(Color.green)
+                        .foregroundStyle(by: .value("Series", "Velocity"))
                 }
             }
+            .chartForegroundStyleScale(["Velocity": .green])
             .chartXAxisLabel("Seconds")
             .chartYAxisLabel("Velocity (deg/s)")
             .chartYScale(domain: -200...200)
+            .chartLegend(position: .top, alignment: .leading)
             .frame(height: 120)
             .padding(.horizontal)
         }
