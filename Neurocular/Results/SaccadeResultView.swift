@@ -11,7 +11,7 @@ struct SaccadeResultView: View {
     @Binding var navigation_path: NavigationPath
     @Binding var storage_manager: StorageManager
 
-    private struct Sample: Identifiable {
+    struct Sample: Identifiable {
         let id = UUID()
         let t: Double        // seconds
         let targetDeg: Double
