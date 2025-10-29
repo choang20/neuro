@@ -64,7 +64,6 @@ struct NystagmusResultView: View {
                     .foregroundStyle(Color.blue)
                 LineMark(x: .value("t", $0.t), y: .value("vel", $0.eyeVel))
                     .foregroundStyle(Color.green)
-                    .yAxis(.trailing)
             }
             .chartXAxisLabel("Seconds")
             .chartYAxisLabel(position: .leading) { Text("Degrees") }
