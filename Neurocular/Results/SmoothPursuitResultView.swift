@@ -61,18 +61,21 @@ struct SmoothPursuitResultView: View {
     var body: some View {
         ScrollView {
         VStack(alignment: .leading) {
-            HStack {
-                Text("Smooth Pursuit Result")
-                    .font(.title3)
-                Spacer()
-                Image(systemName: "square.resize")
-                    .foregroundStyle(.gray)
-                    .onTapGesture { scaleToFit.toggle() }
-                Button("Next") {
-                    navigation_path.append(ResultRoute(examId: examId, kind: "saccades"))
+            Text("Smooth Pursuit Result")
+                .font(.title3)
+                .padding(.horizontal)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(action: { scaleToFit.toggle() }) {
+                            Image(systemName: "square.resize")
+                        }
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Next") {
+                            navigation_path.append(ResultRoute(examId: examId, kind: "saccades"))
+                        }
+                    }
                 }
-            }
-            .padding(.horizontal)
 
             Chart {
                 // Eye traces (smoothed)
@@ -91,6 +94,7 @@ struct SmoothPursuitResultView: View {
             .chartYAxisLabel("Horizontal Gaze Angle (°)")
             .chartYScale(domain: yDomain())
             .chartXScale(domain: [0, Float(nFrames) / 60.0])
+            .frame(height: 300)
             .padding()
         }
         }
@@ -109,9 +113,13 @@ struct SmoothPursuitResultView: View {
             }
             let p05 = percentile(0.05)
             let p95 = percentile(0.95)
-            let span = max(2.0, p95 - p05) // ensure at least a small span
-            let pad = max(0.5, 0.1 * span)
-            return (p05 - pad)...(p95 + pad)
+            let mid = 0.5 * (p05 + p95)
+            var span = max(2.0, p95 - p05)
+            // Guard against spurious outliers: cap span growth
+            span = min(span, 40.0)
+            // If very small amplitude, widen to at least ±3° around median
+            let half = max(3.0, 0.55 * span)
+            return (mid - half)...(mid + half)
         }
         // Tighter default if amplitude small
         let targetAmp = (targetData.map { Double($0.value) }.max() ?? 0) - (targetData.map { Double($0.value) }.min() ?? 0)
