@@ -35,18 +35,38 @@ struct SaccadesScreen: View {
 
     private func runProgram() {
         Task {
-            // Random positions along a horizontal line: 2 seconds x 8 times
-            let y = UIScreen.main.bounds.height / 2
-            let minX: CGFloat = 30
-            let maxX: CGFloat = UIScreen.main.bounds.width - 30
-            for _ in 0..<8 {
-                let x = CGFloat.random(in: minX...maxX)
-                dot_position_subject.send(TimestampedValue.from(CGPoint(x: x, y: y)))
+            // Deterministic step sequence in degrees relative to screen center
+            let sequenceDeg: [Double] = [
+                0, 10, 0, -10, 0, 10, 0, -10, 0
+            ]
+            let holdSeconds: Double = 2.0
+            let centerY = UIScreen.main.bounds.midY
+            for ang in sequenceDeg {
+                let x = degreesToScreenX(ang)
+                let pt = CGPoint(x: x, y: centerY)
+                dot_position_subject.send(TimestampedValue.from(pt))
                 dot_speed_subject.send(TimestampedValue.from(0))
-                try? await Task.sleep(for: .seconds(2))
+                try? await Task.sleep(for: .seconds(holdSeconds))
             }
             dot_speed_subject.send(completion: .finished)
         }
+    }
+
+    // Convert desired horizontal visual angle (deg) to screen X (points)
+    private func degreesToScreenX(_ deg: Double) -> CGFloat {
+        let midX = Double(UIScreen.main.bounds.midX)
+        let ppi = 460.0 // estimated
+        let scale = Double(UIScreen.main.scale) // points→pixels
+        let distanceInches = 600.0 / 25.4 // 60 cm
+        // inches offset using small-angle geometry: x = d * tan(theta)
+        let inchesX = distanceInches * tan(deg * .pi / 180.0)
+        let pixels = inchesX * ppi
+        let points = pixels / scale
+        // Clamp within safe margins
+        let minX = 20.0
+        let maxX = Double(UIScreen.main.bounds.width) - 20.0
+        let x = max(minX, min(maxX, midX + points))
+        return CGFloat(x)
     }
 
     var body: some View {
