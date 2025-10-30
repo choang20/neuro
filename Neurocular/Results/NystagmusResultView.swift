@@ -29,6 +29,7 @@ struct NystagmusResultView: View {
     @State private var hideFastPhases = true
     @State private var smoothWindow = 4
     @State private var showBaselineOnly = false
+    private let showDetails = false // hide velocity and PSD by default
 
     init(examId: ExamId, navigation_path: Binding<NavigationPath>, storage_manager: Binding<StorageManager>) {
         self.examId = examId
@@ -121,36 +122,38 @@ struct NystagmusResultView: View {
             .padding(.horizontal)
             .padding(.top, 8)
 
-            // Velocity (deg/s)
-            Chart(filteredVelocity(samples)) {
-                LineMark(x: .value("t", $0.t), y: .value("vel", $0.eyeVel))
-                    .foregroundStyle(Color.green)
-            }
-            .chartXAxisLabel("Seconds")
-            .chartYAxisLabel("Velocity (deg/s)")
-            .chartYScale(domain: -200...200)
-            .chartXScale(domain: window)
-            .frame(height: 160)
-            .padding(.horizontal)
+            if showDetails {
+                // Velocity (deg/s)
+                Chart(filteredVelocity(samples)) {
+                    LineMark(x: .value("t", $0.t), y: .value("vel", $0.eyeVel))
+                        .foregroundStyle(Color.green)
+                }
+                .chartXAxisLabel("Seconds")
+                .chartYAxisLabel("Velocity (deg/s)")
+                .chartYScale(domain: -200...200)
+                .chartXScale(domain: window)
+                .frame(height: 160)
+                .padding(.horizontal)
 
-            // Welch PSD (position) 0–10 Hz
-            Chart(psd) {
-                LineMark(x: .value("Hz", $0.f), y: .value("Power", $0.p))
-                    .foregroundStyle(Color.purple)
-            }
-            .chartXAxisLabel("Hz")
-            .chartYAxisLabel("PSD (deg²/Hz)")
-            .chartXScale(domain: 0...10)
-            .frame(height: 160)
-            .padding(.horizontal)
-            .overlay(alignment: .leading) {
-                if peakHz > 0 {
-                    GeometryReader { geo in
-                        let x = geo.size.width * CGFloat(peakHz / 10.0)
-                        Rectangle()
-                            .fill(Color.purple.opacity(0.15))
-                            .frame(width: 2)
-                            .offset(x: x)
+                // Welch PSD (position) 0–10 Hz
+                Chart(psd) {
+                    LineMark(x: .value("Hz", $0.f), y: .value("Power", $0.p))
+                        .foregroundStyle(Color.purple)
+                }
+                .chartXAxisLabel("Hz")
+                .chartYAxisLabel("PSD (deg²/Hz)")
+                .chartXScale(domain: 0...10)
+                .frame(height: 160)
+                .padding(.horizontal)
+                .overlay(alignment: .leading) {
+                    if peakHz > 0 {
+                        GeometryReader { geo in
+                            let x = geo.size.width * CGFloat(peakHz / 10.0)
+                            Rectangle()
+                                .fill(Color.purple.opacity(0.15))
+                                .frame(width: 2)
+                                .offset(x: x)
+                        }
                     }
                 }
             }
@@ -162,24 +165,59 @@ struct NystagmusResultView: View {
     // Zoom controls removed for clarity. We auto-focus the window in init.
 
     private func filteredDegrees(_ s: [Sample]) -> [Sample] {
-        var out = s
+        // 1) Mask fast phases with higher threshold and extend gaps
+        let thresh = 50.0
+        let pad = 2 // extend by ±2 frames
+        var masked: [Sample] = s
         if hideFastPhases {
-            out = out.map { smp in
-                abs(smp.eyeVel) > 30 ? Sample(t: smp.t, eyeDeg: Double.nan, eyeVel: smp.eyeVel) : smp
+            // mark indices to mask
+            var maskIdx: Set<Int> = []
+            for (i, smp) in s.enumerated() {
+                if abs(smp.eyeVel) > thresh { maskIdx.insert(i) }
             }
+            // extend
+            for i in maskIdx {
+                let start = max(0, i - pad)
+                let end = min(s.count - 1, i + pad)
+                for j in start...end { maskIdx.insert(j) }
+            }
+            for i in maskIdx { masked[i] = Sample(t: s[i].t, eyeDeg: Double.nan, eyeVel: s[i].eyeVel) }
         }
-        if smoothWindow > 1 {
-            out = movingAverageDeg(out, window: smoothWindow)
+        // 2) Fill only small gaps (<=4 frames) with linear interpolation for drawing
+        var filled = masked
+        let maxGap = 4
+        var i = 0
+        while i < filled.count {
+            if filled[i].eyeDeg.isNaN {
+                let gapStart = i
+                while i < filled.count && filled[i].eyeDeg.isNaN { i += 1 }
+                let gapEnd = i
+                if gapEnd - gapStart <= maxGap {
+                    let left = gapStart > 0 ? masked[gapStart - 1] : masked[gapEnd]
+                    let right = gapEnd < masked.count ? masked[gapEnd] : left
+                    let len = max(1, gapEnd - gapStart + 1)
+                    for k in gapStart..<gapEnd {
+                        let t = Double(k - gapStart + 1) / Double(len)
+                        let y = left.eyeDeg + (right.eyeDeg - left.eyeDeg) * t
+                        filled[k] = Sample(t: masked[k].t, eyeDeg: y, eyeVel: masked[k].eyeVel)
+                    }
+                }
+            } else { i += 1 }
         }
-        out = out.filter { $0.t >= window.lowerBound && $0.t <= window.upperBound }
-        return downsample(out, factor: 2)
+        // 3) Gentle median3 + MA(3–5)
+        var y = filled
+        y = median3Deg(y)
+        y = movingAverageDeg(y, window: max(3, min(5, smoothWindow)))
+        // 4) Window and decimate for plotting
+        y = y.filter { $0.t >= window.lowerBound && $0.t <= window.upperBound }
+        return downsample(y, factor: 2)
     }
 
     private func filteredVelocity(_ s: [Sample]) -> [Sample] {
         var out = s
         // Hide extreme spikes that cause full-height rails in the plot
         out = out.map { smp in
-            abs(smp.eyeVel) > 300 ? Sample(t: smp.t, eyeDeg: smp.eyeDeg, eyeVel: Double.nan) : smp
+            abs(smp.eyeVel) > 400 ? Sample(t: smp.t, eyeDeg: smp.eyeDeg, eyeVel: Double.nan) : smp
         }
         if smoothWindow > 1 {
             out = movingAverageVel(out, window: max(3, smoothWindow/2))
@@ -273,6 +311,20 @@ struct NystagmusResultView: View {
             y.append(buf.reduce(0,+) / Double(buf.count))
         }
         return y
+    }
+
+    private func median3Deg(_ s: [Sample]) -> [Sample] {
+        guard s.count >= 3 else { return s }
+        var out = s
+        for i in 1..<(s.count-1) {
+            let a = s[i-1].eyeDeg
+            let b = s[i].eyeDeg
+            let c = s[i+1].eyeDeg
+            if a.isNaN || b.isNaN || c.isNaN { continue }
+            let m = [a,b,c].sorted()[1]
+            out[i] = Sample(t: s[i].t, eyeDeg: m, eyeVel: s[i].eyeVel)
+        }
+        return out
     }
 
     private static func lowPassMA(_ x: [Double], cutoffHz: Double, fs: Double) -> [Double] {
