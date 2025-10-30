@@ -195,12 +195,14 @@ private struct SaccadePanel: View {
             Text(title)
                 .font(.headline)
                 .padding(.leading)
-            if let m = metrics {
-                Text("latency: \(m.latencyMs) ms   peak: \(m.peakVel)°/s   endpoint: \(m.endpointErr)°")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.leading)
-            }
+            // Simple view: hide metrics for a cleaner single chart
+            // If you want metrics back, re-enable the block below.
+            // if let m = metrics {
+            //     Text("latency: \(m.latencyMs) ms   peak: \(m.peakVel)°/s   endpoint: \(m.endpointErr)°")
+            //         .font(.caption)
+            //         .foregroundStyle(.secondary)
+            //         .padding(.leading)
+            // }
 
             // Degrees chart (fixed domain)
             Chart {
@@ -232,20 +234,7 @@ private struct SaccadePanel: View {
             .frame(height: 220)
             .padding(.horizontal)
 
-            // Velocity chart (separate panel)
-            Chart {
-                ForEach(slice) { s in
-                    LineMark(x: .value("t", s.t), y: .value("vel", s.eyeVel))
-                        .foregroundStyle(by: .value("Series", "Velocity"))
-                }
-            }
-            .chartForegroundStyleScale(["Velocity": .green])
-            .chartXAxisLabel("Seconds")
-            .chartYAxisLabel("Velocity (deg/s)")
-            .chartYScale(domain: -200...200)
-            .chartLegend(position: .top, alignment: .leading)
-            .frame(height: 120)
-            .padding(.horizontal)
+            // Simple view: velocity panel removed for clarity
         }
     }
 
