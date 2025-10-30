@@ -28,7 +28,7 @@ struct NystagmusResultView: View {
     @State private var window: ClosedRange<Double>
     @State private var hideFastPhases = true
     @State private var smoothWindow = 4
-    @State private var showBaselineOnly = false
+    @State private var showBaselineOnly = true
     private let showDetails = false // hide velocity and PSD by default
 
     init(examId: ExamId, navigation_path: Binding<NavigationPath>, storage_manager: Binding<StorageManager>) {
@@ -59,7 +59,7 @@ struct NystagmusResultView: View {
         let filled = Self.interpolateNaNs(masked)
         let detrended = Self.highPass(filled, cutoffHz: 0.5, fs: 60.0)
         // Slow baseline (LP 0.4 Hz) and narrowband sawtooth (2–5 Hz with 3 harmonics)
-        let baseline = Self.lowPassMA(filled, cutoffHz: 0.4, fs: 60.0)
+        let baseline = Self.lowPassMA(filled, cutoffHz: 0.3, fs: 60.0)
         let saw = Self.reconstructHarmonics(detrended, fs: 60.0, fmin: 2.0, fmax: 5.0, harmonics: 3)
         self.baselineLP = baseline
         self.reconSaw = saw
@@ -113,7 +113,8 @@ struct NystagmusResultView: View {
                 // Always draw slow baseline for context
                 ForEach(seriesFrom(baselineLP)) { p in
                     LineMark(x: .value("t", p.t), y: .value("deg", p.y))
-                        .foregroundStyle(Color.gray.opacity(0.8))
+                        .foregroundStyle(Color.gray)
+                        .lineStyle(StrokeStyle(lineWidth: 2))
                 }
             }
             .chartXAxisLabel("Seconds")
