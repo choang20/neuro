@@ -46,7 +46,23 @@ struct NystagmusResultView: View {
         tmp.reserveCapacity(eyeDeg.count)
         for i in 0..<eyeDeg.count { tmp.append(Sample(t: Double(i)*dt, eyeDeg: eyeDeg[i], eyeVel: eyeVel[i])) }
         self.samples = tmp
-        self._window = State(initialValue: 0...(Double(tmp.count)/60.0))
+        // Auto-focus on the largest fast phase (reset): window around the biggest |velocity| spike
+        let totalT = Double(tmp.count) * dt
+        if let maxIdx = tmp.indices.max(by: { abs(tmp[$0].eyeVel) < abs(tmp[$1].eyeVel) }) {
+            let t0 = tmp[maxIdx].t
+            // Require a meaningful spike or fall back to full range
+            if abs(tmp[maxIdx].eyeVel) > 40 { // deg/s
+                let start = max(0.0, t0 - 0.8)
+                let end = min(totalT, t0 + 1.2)
+                self._window = State(initialValue: start...end)
+                // Use slightly lighter smoothing in focused window
+                self._smoothWindow = State(initialValue: 4)
+            } else {
+                self._window = State(initialValue: 0...totalT)
+            }
+        } else {
+            self._window = State(initialValue: 0...totalT)
+        }
     }
 
     var body: some View {
