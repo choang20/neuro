@@ -69,7 +69,7 @@ struct SmoothPursuitResultView: View {
             out[0] = out[1]
             return out
         }
-        func maskAndInterpolate(values: [Float], velocity: [Float], threshold: Float, minRun: Int = 3) -> [Float] {
+        func maskAndInterpolate(values: [Float], velocity: [Float], threshold: Float, minRun: Int = 4) -> [Float] {
             var vals = values
             let n = values.count
             var i = 0
@@ -94,9 +94,11 @@ struct SmoothPursuitResultView: View {
             let dt: Float = 1.0 / 60.0
             let pre = movingAvg(xs, window: 5)
             let v = derivative(pre, dt: dt)
-            let masked = maskAndInterpolate(values: pre, velocity: v, threshold: 90, minRun: 3)
-            let sg = sgSmooth11(masked)
-            return movingAvg(sg, window: 13)
+            let masked = maskAndInterpolate(values: pre, velocity: v, threshold: 90, minRun: 4)
+            // Effective wider SG by applying twice
+            let sg1 = sgSmooth11(masked)
+            let sg2 = sgSmooth11(sg1)
+            return movingAvg(sg2, window: 13)
         }
         let smoothed = ArrayByEye<Float>(
             left: pipeline(biased.left),
