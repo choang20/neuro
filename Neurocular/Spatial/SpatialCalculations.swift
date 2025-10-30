@@ -126,7 +126,8 @@ func headYawDegreesRelativeToCamera(_ transforms: Transforms) -> Float {
     let fXZ = simd_normalize(SIMD2<Float>(headForward.x, headForward.z))
     // atan2(x, -z): right is +, left is - (camera coordinates)
     let yaw = atan2f(fXZ.x, -fXZ.y) * 180.0 / .pi
-    return yaw
+    // Flip sign so left = +, right = − to match clinical convention
+    return -yaw
 }
 
 /**

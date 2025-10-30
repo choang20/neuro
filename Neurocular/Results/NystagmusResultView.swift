@@ -21,7 +21,7 @@ struct NystagmusResultView: View {
     private let samples: [Sample]
     @State private var window: ClosedRange<Double>
     @State private var hideFastPhases = true
-    @State private var smoothWindow = 5
+    @State private var smoothWindow = 4
 
     init(examId: ExamId, navigation_path: Binding<NavigationPath>, storage_manager: Binding<StorageManager>) {
         self.examId = examId
@@ -123,7 +123,7 @@ struct NystagmusResultView: View {
         var out = s
         // Hide extreme spikes that cause full-height rails in the plot
         out = out.map { smp in
-            abs(smp.eyeVel) > 200 ? Sample(t: smp.t, eyeDeg: smp.eyeDeg, eyeVel: Double.nan) : smp
+            abs(smp.eyeVel) > 300 ? Sample(t: smp.t, eyeDeg: smp.eyeDeg, eyeVel: Double.nan) : smp
         }
         if smoothWindow > 1 {
             out = movingAverageVel(out, window: max(3, smoothWindow/2))
