@@ -54,7 +54,8 @@ struct SaccadesScreen: View {
 
     // Convert desired horizontal visual angle (deg) to screen X (points)
     private func degreesToScreenX(_ deg: Double) -> CGFloat {
-        let midX = Double(UIScreen.main.bounds.midX)
+        let bounds = UIScreen.main.bounds
+        let midX = Double(bounds.midX)
         let ppi = 460.0 // estimated
         let scale = Double(UIScreen.main.scale) // points→pixels
         let distanceInches = 600.0 / 25.4 // 60 cm
@@ -62,9 +63,12 @@ struct SaccadesScreen: View {
         let inchesX = distanceInches * tan(deg * .pi / 180.0)
         let pixels = inchesX * ppi
         let points = pixels / scale
-        // Clamp within safe margins
-        let minX = 20.0
-        let maxX = Double(UIScreen.main.bounds.width) - 20.0
+        // Keep the whole dot on-screen: clamp by dot radius instead of a fixed 20pt
+        let dotDiameterPts = Double(targetDotDiameterPixels())
+        let radius = dotDiameterPts / 2.0
+        let margin = 6.0
+        let minX = radius + margin
+        let maxX = Double(bounds.width) - radius - margin
         let x = max(minX, min(maxX, midX + points))
         return CGFloat(x)
     }
