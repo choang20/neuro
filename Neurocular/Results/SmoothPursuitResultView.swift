@@ -48,10 +48,57 @@ struct SmoothPursuitResultView: View {
             }
             return out
         }
-        // Denoise: 3-pt median then 9-pt moving average
-        let smoothed = biased
-            .map_array_by_eye { median3($0) }
-            .map_array_by_eye { movingAvg($0, window: 9) }
+        // --- Robust smoothing pipeline for pursuit ---
+        func sgSmooth11(_ xs: [Float]) -> [Float] {
+            // Savitzky–Golay (window 11, poly 3) coefficients
+            let k: [Float] = [-36, 9, 44, 69, 84, 89, 84, 69, 44, 9, -36].map { $0 / 429.0 }
+            let n = xs.count
+            if n < k.count { return xs }
+            var out = xs
+            for i in 5..<(n-5) {
+                var acc: Float = 0
+                for j in -5...5 { acc += k[j+5] * xs[i+j] }
+                out[i] = acc
+            }
+            return out
+        }
+        func derivative(_ xs: [Float], dt: Float) -> [Float] {
+            guard xs.count > 1 else { return xs }
+            var out: [Float] = Array(repeating: 0, count: xs.count)
+            for i in 1..<xs.count { out[i] = (xs[i] - xs[i-1]) / dt }
+            out[0] = out[1]
+            return out
+        }
+        func maskAndInterpolate(values: [Float], velocity: [Float], threshold: Float) -> [Float] {
+            var vals = values
+            let n = values.count
+            var i = 0
+            while i < n {
+                if abs(velocity[i]) > threshold {
+                    let start = i
+                    while i < n && abs(velocity[i]) > threshold { i += 1 }
+                    let end = min(i, n-1)
+                    let leftVal = start > 0 ? vals[start-1] : vals[end]
+                    let rightVal = end < n-1 ? vals[end] : vals[start]
+                    let len = max(1, end - start)
+                    for t in 0..<len { vals[start+t] = leftVal + (rightVal - leftVal) * Float(t+1) / Float(len+1) }
+                } else {
+                    i += 1
+                }
+            }
+            return vals
+        }
+        func pipeline(_ xs: [Float]) -> [Float] {
+            let dt: Float = 1.0 / 60.0
+            let v = derivative(xs, dt: dt)
+            let masked = maskAndInterpolate(values: xs, velocity: v, threshold: 120)
+            let sg = sgSmooth11(masked)
+            return movingAvg(sg, window: 13)
+        }
+        let smoothed = ArrayByEye<Float>(
+            left: pipeline(biased.left),
+            right: pipeline(biased.right)
+        )
         self.plotData = smoothed.consume_with(tidy_gaze_angles)
         self.nFrames = transforms.count
 
