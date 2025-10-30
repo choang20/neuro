@@ -164,9 +164,10 @@ private struct SaccadePanel: View {
 
             // Degrees chart (fixed domain)
             Chart {
-                // Target position (deg)
-                ForEach(slice) { s in
-                    LineMark(x: .value("t", s.t), y: .value("deg", s.targetDeg))
+                // Target position as square wave using duplicate points at jumps
+                ForEach(stepPoints(slice), id: \.
+                    0) { p in
+                    LineMark(x: .value("t", p.0), y: .value("deg", p.1))
                         .foregroundStyle(by: .value("Series", "Target"))
                 }
                 // Eye position (deg)
@@ -207,6 +208,28 @@ private struct SaccadePanel: View {
             .frame(height: 120)
             .padding(.horizontal)
         }
+    }
+
+    // Build square-wave points by duplicating time at jump boundaries
+    private func stepPoints(_ s: [SaccadeResultView.Sample]) -> [(Double, Double)] {
+        guard !s.isEmpty else { return [] }
+        var pts: [(Double, Double)] = []
+        pts.reserveCapacity(s.count * 2)
+        var prev = s[0].targetDeg
+        pts.append((s[0].t, prev))
+        for i in 1..<s.count {
+            let curr = s[i].targetDeg
+            let t = s[i].t
+            if curr != prev {
+                // vertical edge: duplicate time at boundary with previous value, then new value
+                pts.append((t, prev))
+                pts.append((t, curr))
+                prev = curr
+            } else {
+                pts.append((t, curr))
+            }
+        }
+        return pts
     }
 }
 
