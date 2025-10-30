@@ -21,6 +21,8 @@ struct SaccadeResultView: View {
 
     private let samples: [Sample]
     private let speedDeg: [Double]
+    struct StepWindow: Identifiable { let id = UUID(); let index: Int; let title: String; let slice: [Sample]; let latencyMs: Int; let peakVel: Int; let endpointErr: Int }
+    private let steps: [StepWindow]
 
     init(examId: ExamId, navigation_path: Binding<NavigationPath>, storage_manager: Binding<StorageManager>) {
         self.examId = examId
@@ -96,6 +98,8 @@ struct SaccadeResultView: View {
             sdeg.append(speedPixelsPerSec / pixelsPerDeg)
         }
         self.speedDeg = sdeg
+        // Detect steps from target angle change
+        self.steps = SaccadeResultView.detectSteps(all: tmp)
     }
 
     var body: some View {
@@ -109,64 +113,94 @@ struct SaccadeResultView: View {
             // Top spacer to avoid any overlap with nav bar on compact devices
             Rectangle().fill(Color.clear).frame(height: 8)
 
-            SaccadePanel(title: "5°/s", slice: segmentOrThird(target: 5, index: 0))
-            SaccadePanel(title: "15°/s", slice: segmentOrThird(target: 15, index: 1))
-            SaccadePanel(title: "30°/s", slice: segmentOrThird(target: 30, index: 2))
+            ForEach(steps) { st in
+                SaccadePanel(title: st.title, slice: st.slice, metrics: (latencyMs: st.latencyMs, peakVel: st.peakVel, endpointErr: st.endpointErr))
+            }
         }
         .padding(.bottom)
         .navigationBarTitleDisplayMode(.inline)
         }
     }
 
-    private func segmentSlice(target: Double) -> [Sample] {
-        // Find the longest contiguous window where |speedDeg - target| <= tol for >= minDur seconds
-        let tol = 2.0
-        let minFrames = Int(1.5 * 60.0) // at least 1.5s
-        var bestRange: Range<Int>? = nil
-        var i = 0
-        while i < speedDeg.count {
-            if abs(speedDeg[i] - target) <= tol {
-                let start = i
-                while i < speedDeg.count && abs(speedDeg[i] - target) <= tol { i += 1 }
-                let end = i
-                if end - start >= minFrames {
-                    if bestRange == nil || (end - start) > (bestRange!.count) {
-                        bestRange = start..<end
-                    }
-                }
-            } else {
-                i += 1
+    // Step detection based on target position change
+    private static func detectSteps(all: [Sample]) -> [StepWindow] {
+        let n = all.count
+        guard n > 2 else { return [] }
+        var onsets: [Int] = []
+        let dt = 1.0 / 60.0
+        let thr = 5.0 // degrees change
+        var i = 1
+        while i < n {
+            let d = all[i].targetDeg - all[i-1].targetDeg
+            if abs(d) >= thr {
+                onsets.append(i)
+                // skip ahead ~0.8s to avoid duplicate detection
+                i += Int(0.8 / dt)
+                continue
             }
+            i += 1
         }
-        guard let r = bestRange else { return [] }
-        // Normalize time to start at 0 for the slice
-        let t0 = samples[r.lowerBound].t
-        return samples[r].map { s in Sample(t: s.t - t0, targetDeg: s.targetDeg, eyeDeg: s.eyeDeg, eyeVel: s.eyeVel) }
+        var steps: [StepWindow] = []
+        for (idx, onset) in onsets.enumerated() {
+            let start = max(0, onset - Int(0.2 / dt))
+            let end = min(n-1, onset + Int(0.8 / dt))
+            if end <= start { continue }
+            let sliceRaw = Array(all[start...end])
+            let t0 = all[onset].t
+            let slice = sliceRaw.map { s in Sample(t: s.t - t0, targetDeg: s.targetDeg, eyeDeg: s.eyeDeg, eyeVel: s.eyeVel) }
+            // Metrics
+            let latencyFrames = Self.computeLatency(slice: slice)
+            let latencyMs = Int(Double(latencyFrames) * dt * 1000.0)
+            let peak = Self.computePeakVel(slice: slice)
+            let err = Self.computeEndpointError(slice: slice)
+            let dtheta = all[min(onset+1,n-1)].targetDeg - all[max(onset-1,0)].targetDeg
+            let title = String(format: "Step %d (Δ%.0f° %@)", idx+1, abs(dtheta), dtheta>=0 ? "→" : "←")
+            steps.append(StepWindow(index: idx+1, title: title, slice: slice, latencyMs: latencyMs, peakVel: Int(round(peak)), endpointErr: Int(round(err))))
+        }
+        return steps
     }
 
-    private func thirdSlice(_ idx: Int) -> [Sample] {
-        let third = max(samples.count / 3, 1)
-        let start = idx * third
-        let end = idx == 2 ? samples.count : min(start + third, samples.count)
-        let t0 = samples[start].t
-        return Array(samples[start..<end]).map { s in Sample(t: s.t - t0, targetDeg: s.targetDeg, eyeDeg: s.eyeDeg, eyeVel: s.eyeVel) }
+    private static func computeLatency(slice: [Sample]) -> Int {
+        // first time |vel|>30 deg/s for >=2 frames
+        var run = 0
+        for (i,s) in slice.enumerated() where s.t >= 0 {
+            if abs(s.eyeVel) > 30 { run += 1 } else { run = 0 }
+            if run >= 2 { return i-1 }
+        }
+        return slice.count
     }
 
-    private func segmentOrThird(target: Double, index: Int) -> [Sample] {
-        let seg = segmentSlice(target: target)
-        return seg.isEmpty ? thirdSlice(index) : seg
+    private static func computePeakVel(slice: [Sample]) -> Double {
+        var peak = 0.0
+        for s in slice where s.t >= 0 && s.t <= 0.25 { peak = max(peak, abs(s.eyeVel)) }
+        return peak
+    }
+
+    private static func computeEndpointError(slice: [Sample]) -> Double {
+        // average eye minus target 0.25..0.35s after onset
+        let lo = 0.25, hi = 0.35
+        var sum = 0.0, cnt = 0.0
+        for s in slice where s.t >= lo && s.t <= hi { sum += (s.eyeDeg - s.targetDeg); cnt += 1 }
+        return cnt > 0 ? sum/cnt : 0
     }
 }
 
 private struct SaccadePanel: View {
     let title: String
     let slice: [SaccadeResultView.Sample]
+    let metrics: (latencyMs: Int, peakVel: Int, endpointErr: Int)?
 
     var body: some View {
         VStack(alignment: .leading) {
             Text(title)
                 .font(.headline)
                 .padding(.leading)
+            if let m = metrics {
+                Text("latency: \(m.latencyMs) ms   peak: \(m.peakVel)°/s   endpoint: \(m.endpointErr)°")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.leading)
+            }
 
             // Degrees chart (fixed domain)
             Chart {
