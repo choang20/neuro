@@ -66,8 +66,9 @@ struct SaccadeResultView: View {
             let pxX = positions.isEmpty ? screenMidX : Double(positions[posIndex].value.x)
             let deltaPx = pxX - screenMidX
             let inchesX = deltaPx / ppi
-            let dist = Double(calculate_distance_from_screen(from_transforms: s.transforms))
-            let ang = atan2(inchesX, max(dist, 1e-3)) * 180.0 / .pi
+            // Use a fixed viewing distance (60cm) so steps are truly flat between jumps
+            let dist = 600.0 / 25.4
+            let ang = atan2(inchesX, dist) * 180.0 / .pi
             targetDeg.append(ang)
         }
 

@@ -26,7 +26,16 @@ struct SmoothPursuitResultView: View {
         let calibrated = calculate_horizontal_gaze_angle(transforms).map_by_eye(apply_angle_calibration)
         let biased = bias_right_eye(calibrated)
         // Light smoothing (moving average window = 5 frames ~83ms at 60Hz)
-        func smooth(_ xs: [Float], window: Int) -> [Float] {
+        func median3(_ xs: [Float]) -> [Float] {
+            if xs.count < 3 { return xs }
+            var out = xs
+            for i in 1..<(xs.count-1) {
+                let a = xs[i-1], b = xs[i], c = xs[i+1]
+                out[i] = [a,b,c].sorted()[1]
+            }
+            return out
+        }
+        func movingAvg(_ xs: [Float], window: Int) -> [Float] {
             guard window > 1 else { return xs }
             var out: [Float] = []
             out.reserveCapacity(xs.count)
@@ -39,7 +48,10 @@ struct SmoothPursuitResultView: View {
             }
             return out
         }
-        let smoothed = biased.map_array_by_eye { smooth($0, window: 5) }
+        // Denoise: 3-pt median then 9-pt moving average
+        let smoothed = biased
+            .map_array_by_eye { median3($0) }
+            .map_array_by_eye { movingAvg($0, window: 9) }
         self.plotData = smoothed.consume_with(tidy_gaze_angles)
         self.nFrames = transforms.count
 
