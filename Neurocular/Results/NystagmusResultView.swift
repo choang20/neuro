@@ -116,15 +116,21 @@ struct NystagmusResultView: View {
         if smoothWindow > 1 {
             out = movingAverageDeg(out, window: smoothWindow)
         }
-        return out.filter { $0.t >= window.lowerBound && $0.t <= window.upperBound }
+        out = out.filter { $0.t >= window.lowerBound && $0.t <= window.upperBound }
+        return downsample(out, factor: 2)
     }
 
     private func filteredVelocity(_ s: [Sample]) -> [Sample] {
         var out = s
+        // Hide extreme spikes that cause full-height rails in the plot
+        out = out.map { smp in
+            abs(smp.eyeVel) > 200 ? Sample(t: smp.t, eyeDeg: smp.eyeDeg, eyeVel: Double.nan) : smp
+        }
         if smoothWindow > 1 {
             out = movingAverageVel(out, window: max(3, smoothWindow/2))
         }
-        return out.filter { $0.t >= window.lowerBound && $0.t <= window.upperBound }
+        out = out.filter { $0.t >= window.lowerBound && $0.t <= window.upperBound }
+        return downsample(out, factor: 2)
     }
 
     private func movingAverageDeg(_ s: [Sample], window: Int) -> [Sample] {
@@ -152,6 +158,20 @@ struct NystagmusResultView: View {
             let vel = vbuf.reduce(0, +) / Double(vbuf.count)
             out.append(Sample(t: smp.t, eyeDeg: smp.eyeDeg, eyeVel: vel))
         }
+        return out
+    }
+
+    // Simple plotting downsample to reduce overdraw
+    private func downsample(_ s: [Sample], factor: Int) -> [Sample] {
+        guard factor > 1 else { return s }
+        var out: [Sample] = []
+        out.reserveCapacity(s.count / factor + 1)
+        var i = 0
+        while i < s.count {
+            out.append(s[i])
+            i += factor
+        }
+        if s.count % factor != 0 { out.append(s.last!) }
         return out
     }
 }
