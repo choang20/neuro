@@ -119,7 +119,9 @@ struct NystagmusScreen: View {
                         let center = CGPoint(x: UIScreen.main.bounds.midX, y: UIScreen.main.bounds.midY)
                         dot_position_subject.send(TimestampedValue.from(center))
                         dot_speed_subject.send(TimestampedValue.from(0))
-                        recorder.record()
+                        if case .Ready = recorder.status {
+                            recorder.record()
+                        }
                     }
             },
             startTest: { runProgram() },

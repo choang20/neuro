@@ -63,7 +63,11 @@ struct SmoothPursuitScreen: View {
                     dot_speed_publisher: dot_speed_subject.eraseToAnyPublisher(),
                     dot_position_subject: dot_position_subject
                 )
-                .onAppear { recorder.record() }
+                .onAppear {
+                    if case .Ready = recorder.status {
+                        recorder.record()
+                    }
+                }
             },
             startTest: { runProgram() },
             onFinish: {
