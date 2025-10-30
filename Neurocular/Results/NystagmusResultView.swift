@@ -96,9 +96,14 @@ struct NystagmusResultView: View {
             // Position (deg)
             Chart {
                 if !showBaselineOnly {
-                    ForEach(filteredDegrees(samples)) { s in
-                        LineMark(x: .value("t", s.t), y: .value("deg", s.eyeDeg))
-                            .foregroundStyle(Color.blue)
+                    // Draw masked eye trace in segments so gaps don't connect with long diagonals
+                    let segs = segments(filteredDegrees(samples))
+                    ForEach(segs.indices, id: \.self) { idx in
+                        let seg = segs[idx]
+                        ForEach(seg) { s in
+                            LineMark(x: .value("t", s.t), y: .value("deg", s.eyeDeg))
+                                .foregroundStyle(Color.blue)
+                        }
                     }
                     ForEach(seriesFrom(reconCombined)) { p in
                         LineMark(x: .value("t", p.t), y: .value("deg", p.y))
@@ -265,6 +270,21 @@ struct NystagmusResultView: View {
             i += factor
         }
         if s.count % factor != 0 { out.append(s.last!) }
+        return out
+    }
+
+    // Split into contiguous non-NaN segments to avoid connecting across gaps
+    private func segments(_ s: [Sample]) -> [[Sample]] {
+        var out: [[Sample]] = []
+        var cur: [Sample] = []
+        for pt in s {
+            if pt.eyeDeg.isNaN {
+                if !cur.isEmpty { out.append(cur); cur.removeAll() }
+            } else {
+                cur.append(pt)
+            }
+        }
+        if !cur.isEmpty { out.append(cur) }
         return out
     }
 
