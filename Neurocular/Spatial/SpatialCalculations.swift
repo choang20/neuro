@@ -130,4 +130,11 @@ final class HeadYawTracker {
         filteredDeg = alpha * zeroed + (1 - alpha) * filteredDeg
         return filteredDeg
     }
+
+    // Returns zeroed yaw using the calibrated baseline, without smoothing or tracking requirement.
+    func zeroedYaw(_ transforms: Transforms) -> Float? {
+        guard let baseline = baselineDeg else { return nil }
+        let raw = headYawDegreesRelativeToCamera(transforms)
+        return raw - baseline
+    }
 }

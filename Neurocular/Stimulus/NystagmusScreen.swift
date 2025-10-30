@@ -43,8 +43,14 @@ struct NystagmusScreen: View {
             var count = 0
             cancellable = spatial_emitter.subject.sink { frame in
                 if case .FaceDetected(let f) = frame {
-                    if let deg = HeadYawTracker.shared.update(with: f.transforms, isTracked: !f.wild_guess) {
-                        if predicate(deg) {
+                    var angle: Float? = nil
+                    if let d = HeadYawTracker.shared.update(with: f.transforms, isTracked: !f.wild_guess) {
+                        angle = d
+                    } else if let z = HeadYawTracker.shared.zeroedYaw(f.transforms) {
+                        angle = z
+                    }
+                    if let a = angle {
+                        if predicate(a) {
                             count += 1
                             if count >= requiredFrames {
                                 cancellable?.cancel()
@@ -93,11 +99,11 @@ struct NystagmusScreen: View {
             // Calibrate baseline with a short median window
             await calibrateBaseline()
             speak("Slowly move your head as far as possible to the left while you look at the red dot.")
-            await waitUntilStable(predicate: { $0 <= -44 }, requiredFrames: 8)
+            await waitUntilStable(predicate: { $0 <= -45 }, requiredFrames: 6)
             speak("Hold this position; keep looking at the red dot.")
             await countToFive()
             speak("Now slowly turn your head all the way to the right while you look at the red dot.")
-            await waitUntilStable(predicate: { $0 >= 44 }, requiredFrames: 8)
+            await waitUntilStable(predicate: { $0 >= 45 }, requiredFrames: 6)
             speak("Hold this position; keep looking at the red dot.")
             await countToFive()
             // Optionally repeat cycles as needed
