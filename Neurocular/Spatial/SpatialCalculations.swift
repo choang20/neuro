@@ -81,7 +81,8 @@ func derivative(of values: [Float], inter_sample_distance: Float) -> [Float] {
  Uses the relative transform (inverse(camera) * head) and extracts yaw from a
  quaternion to decouple pitch/roll.
  */
-func headYawDegreesRelativeToCamera(_ transforms: Transforms) -> Float {
+// Original quaternion-based yaw (kept for reference/testing)
+func headYawDegreesRelativeToCamera_quat(_ transforms: Transforms) -> Float {
     let cam = simd_float4x4(columns: (
         SIMD4(transforms.camera[0]),
         SIMD4(transforms.camera[1]),
@@ -101,6 +102,33 @@ func headYawDegreesRelativeToCamera(_ transforms: Transforms) -> Float {
     return yawRadians * 180.0 / .pi
 }
 
+// Robust yaw via forward-vector projection in camera coordinates.
+// Works consistently regardless of device orientation or which front camera is used.
+func headYawDegreesRelativeToCamera(_ transforms: Transforms) -> Float {
+    let cam = simd_float4x4(columns: (
+        SIMD4(transforms.camera[0]),
+        SIMD4(transforms.camera[1]),
+        SIMD4(transforms.camera[2]),
+        SIMD4(transforms.camera[3])
+    ))
+    let head = simd_float4x4(columns: (
+        SIMD4(transforms.head[0]),
+        SIMD4(transforms.head[1]),
+        SIMD4(transforms.head[2]),
+        SIMD4(transforms.head[3])
+    ))
+    // Head in camera space
+    let rel = simd_inverse(cam) * head
+    // Camera looks along -Z. Head forward in its local frame is -Z. Extract rel's Z axis.
+    let zAxis = SIMD3<Float>(rel.columns.2.x, rel.columns.2.y, rel.columns.2.z)
+    let headForward = simd_normalize(-zAxis)
+    // Project forward onto camera XZ-plane and compute yaw about +Y.
+    let fXZ = simd_normalize(SIMD2<Float>(headForward.x, headForward.z))
+    // atan2(x, -z): right is +, left is - (camera coordinates)
+    let yaw = atan2f(fXZ.x, -fXZ.y) * 180.0 / .pi
+    return yaw
+}
+
 /**
  Tracks a calibrated and lightly smoothed head yaw. Call `reset()` at the start
  of a test, then feed frames to `update`. Returns nil for untracked frames.
@@ -109,7 +137,7 @@ final class HeadYawTracker {
     static let shared = HeadYawTracker()
     private var baselineDeg: Float? = nil
     private var filteredDeg: Float = 0
-    private let alpha: Float = 0.2
+    private let alpha: Float = 0.3
     
     func reset() {
         baselineDeg = nil
