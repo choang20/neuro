@@ -61,7 +61,8 @@ struct SmoothPursuitScreen: View {
             makeStimulus: {
                 BackAndForthStimulus(
                     dot_speed_publisher: dot_speed_subject.eraseToAnyPublisher(),
-                    dot_position_subject: dot_position_subject
+                    dot_position_subject: dot_position_subject,
+                    motion: .sine
                 )
                 .onAppear {
                     if case .Ready = recorder.status {
