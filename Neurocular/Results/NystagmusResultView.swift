@@ -74,8 +74,6 @@ struct NystagmusResultView: View {
                 Spacer()
             }.padding(.horizontal)
 
-            controls
-
             // Position (deg)
             Chart(filteredDegrees(samples)) {
                 LineMark(x: .value("t", $0.t), y: .value("deg", $0.eyeDeg))
@@ -87,6 +85,7 @@ struct NystagmusResultView: View {
             .chartXScale(domain: window)
             .frame(height: 220)
             .padding(.horizontal)
+            .padding(.top, 8)
 
             // Velocity (deg/s)
             Chart(filteredVelocity(samples)) {
@@ -104,23 +103,7 @@ struct NystagmusResultView: View {
         }
     }
 
-    @ViewBuilder
-    private var controls: some View {
-        HStack(spacing: 16) {
-            Text("Zoom")
-            Slider(value: Binding(
-                get: { window.lowerBound },
-                set: { window = $0...window.upperBound }
-            ), in: 0...(samples.last?.t ?? 0), step: 0.1)
-            Slider(value: Binding(
-                get: { window.upperBound },
-                set: { window = window.lowerBound...$0 }
-            ), in: 0...(samples.last?.t ?? 0), step: 0.1)
-            Toggle("Hide >30°/s", isOn: $hideFastPhases)
-            Stepper("Smooth: \(smoothWindow)", value: $smoothWindow, in: 1...9)
-        }
-        .padding(.horizontal)
-    }
+    // Zoom controls removed for clarity. We auto-focus the window in init.
 
     private func filteredDegrees(_ s: [Sample]) -> [Sample] {
         var out = s
