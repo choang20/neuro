@@ -111,6 +111,22 @@ struct NystagmusScreen: View {
         }
     }
 
+    private func finishNowAndShowResults() {
+        // End recording immediately and navigate when the save completes
+        dot_speed_subject.send(completion: .finished)
+        Task {
+            // Poll briefly until recorder finishes
+            for _ in 0..<20 { // ~1s max
+                if case .Finished(.success(let id)) = recorder.status,
+                   let _ = storage_manager.get_exam_metadata_by_id(id) {
+                    navigation_path.append(ResultRoute(examId: id, kind: "nystagmus"))
+                    return
+                }
+                try? await Task.sleep(for: .milliseconds(50))
+            }
+        }
+    }
+
     var body: some View {
         TestScaffold(
             title: "nystagmus",
@@ -141,6 +157,11 @@ struct NystagmusScreen: View {
             },
             layout: .stacked
         )
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("done") { finishNowAndShowResults() }
+            }
+        }
     }
 }
 
