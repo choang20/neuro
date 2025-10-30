@@ -22,6 +22,9 @@ struct NystagmusResultView: View {
     struct PSDPoint: Identifiable { let id = UUID(); let f: Double; let p: Double }
     private let psd: [PSDPoint]
     private let peakHz: Double
+    private let baselineLP: [Double]
+    private let reconSaw: [Double]
+    private let reconCombined: [Double]
     @State private var window: ClosedRange<Double>
     @State private var hideFastPhases = true
     @State private var smoothWindow = 4
@@ -53,7 +56,14 @@ struct NystagmusResultView: View {
         let masked = Self.maskFastPhases(pos: eyeDeg, vel: eyeVel, vth: 30)
         let filled = Self.interpolateNaNs(masked)
         let detrended = Self.highPass(filled, cutoffHz: 0.2, fs: 60.0)
-        // Welch PSD on detrended position
+        // Slow baseline (LP 0.4 Hz) and narrowband sawtooth (2–5 Hz with 3 harmonics)
+        let baseline = Self.lowPassMA(filled, cutoffHz: 0.4, fs: 60.0)
+        let saw = Self.reconstructHarmonics(detrended, fs: 60.0, fmin: 2.0, fmax: 5.0, harmonics: 3)
+        self.baselineLP = baseline
+        self.reconSaw = saw
+        self.reconCombined = zip(baseline, saw).map(+)
+
+        // Welch PSD on detrended position (full length)
         let (freqs, power) = Self.welchPSD(detrended, fs: 60.0, nperseg: 256, overlap: 0.5)
         var pts: [PSDPoint] = []
         for i in 0..<freqs.count { if freqs[i] <= 10.0 { pts.append(PSDPoint(f: freqs[i], p: power[i])) } }
@@ -93,6 +103,21 @@ struct NystagmusResultView: View {
             Chart(filteredDegrees(samples)) {
                 LineMark(x: .value("t", $0.t), y: .value("deg", $0.eyeDeg))
                     .foregroundStyle(Color.blue)
+            }
+            // Overlay: baseline LP and combined reconstruction
+            .overlay {
+                Chart(seriesFrom(baselineLP)) {
+                    LineMark(x: .value("t", $0.t), y: .value("deg", $0.y))
+                        .foregroundStyle(Color.gray.opacity(0.7))
+                }
+                .chartXScale(domain: window)
+                .chartYScale(domain: -45...45)
+                Chart(seriesFrom(reconCombined)) {
+                    LineMark(x: .value("t", $0.t), y: .value("deg", $0.y))
+                        .foregroundStyle(Color.red.opacity(0.6))
+                }
+                .chartXScale(domain: window)
+                .chartYScale(domain: -45...45)
             }
             .chartXAxisLabel("Seconds")
             .chartYAxisLabel("Degrees")
@@ -256,6 +281,11 @@ struct NystagmusResultView: View {
         return y
     }
 
+    private static func lowPassMA(_ x: [Double], cutoffHz: Double, fs: Double) -> [Double] {
+        let win = max(3, Int(round(fs / max(cutoffHz, 1e-3))))
+        return movingAvgD(x, window: win)
+    }
+
     private static func highPass(_ x: [Double], cutoffHz: Double, fs: Double) -> [Double] {
         // Simple HP via subtracting long-window moving average
         let period = max(1, Int(fs / max(cutoffHz, 1e-3))) // ~1/cutoff seconds
@@ -310,6 +340,74 @@ struct NystagmusResultView: View {
             out[k] = (re*re + im*im) / Double(n)
         }
         return out
+    }
+
+    // Reconstruct narrowband component around the dominant peak in [fmin,fmax],
+    // preserving phase and first few harmonics.
+    private static func reconstructHarmonics(_ x: [Double], fs: Double, fmin: Double, fmax: Double, harmonics: Int) -> [Double] {
+        let n = x.count
+        if n == 0 { return [] }
+        // DFT
+        var Re = Array(repeating: 0.0, count: n)
+        var Im = Array(repeating: 0.0, count: n)
+        for k in 0..<n {
+            var r = 0.0, m = 0.0
+            let twoPiNk = 2.0 * .pi * Double(k) / Double(n)
+            for (i, v) in x.enumerated() {
+                let a = twoPiNk * Double(i)
+                r += v * cos(a)
+                m -= v * sin(a)
+            }
+            Re[k] = r
+            Im[k] = m
+        }
+        let binHz = fs / Double(n)
+        let kmin = max(1, Int(floor(fmin / binHz)))
+        let kmax = min(n/2 - 1, Int(ceil(fmax / binHz)))
+        if kmax <= kmin { return Array(repeating: 0, count: n) }
+        // Find dominant bin in band
+        var bestK = kmin
+        var bestMag = 0.0
+        for k in kmin...kmax {
+            let mag = Re[k]*Re[k] + Im[k]*Im[k]
+            if mag > bestMag { bestMag = mag; bestK = k }
+        }
+        // Keep fundamental and first few harmonics symmetrically
+        var R2 = Array(repeating: 0.0, count: n)
+        var I2 = Array(repeating: 0.0, count: n)
+        for h in 1...harmonics {
+            let k = bestK * h
+            if k >= n/2 { break }
+            R2[k] = Re[k]; I2[k] = Im[k]
+            let kc = n - k
+            R2[kc] = Re[kc]; I2[kc] = Im[kc]
+        }
+        // Inverse DFT
+        var y = Array(repeating: 0.0, count: n)
+        for i in 0..<n {
+            var sum = 0.0
+            for k in 0..<n {
+                let a = 2.0 * .pi * Double(k) * Double(i) / Double(n)
+                sum += R2[k] * cos(a) - I2[k] * sin(a)
+            }
+            y[i] = sum / Double(n)
+        }
+        return y
+    }
+
+    // Series for overlay from full-length arrays, sliced to current window
+    struct YPoint: Identifiable { let id = UUID(); let t: Double; let y: Double }
+    private func seriesFrom(_ arr: [Double]) -> [YPoint] {
+        var pts: [YPoint] = []
+        pts.reserveCapacity(arr.count)
+        let dt = 1.0 / 60.0
+        for i in 0..<arr.count {
+            let t = Double(i) * dt
+            if t >= window.lowerBound && t <= window.upperBound {
+                pts.append(YPoint(t: t, y: arr[i]))
+            }
+        }
+        return pts
     }
 }
 
