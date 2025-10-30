@@ -19,6 +19,9 @@ struct NystagmusResultView: View {
     }
 
     private let samples: [Sample]
+    struct PSDPoint: Identifiable { let id = UUID(); let f: Double; let p: Double }
+    private let psd: [PSDPoint]
+    private let peakHz: Double
     @State private var window: ClosedRange<Double>
     @State private var hideFastPhases = true
     @State private var smoothWindow = 4
@@ -46,6 +49,18 @@ struct NystagmusResultView: View {
         tmp.reserveCapacity(eyeDeg.count)
         for i in 0..<eyeDeg.count { tmp.append(Sample(t: Double(i)*dt, eyeDeg: eyeDeg[i], eyeVel: eyeVel[i])) }
         self.samples = tmp
+        // Build analysis signal per neuro-ophthalmologist guidance
+        let masked = maskFastPhases(pos: eyeDeg, vel: eyeVel, vth: 30)
+        let filled = interpolateNaNs(masked)
+        let detrended = highPass(filled, cutoffHz: 0.2, fs: 60.0)
+        // Welch PSD on detrended position
+        let (freqs, power) = welchPSD(detrended, fs: 60.0, nperseg: 256, overlap: 0.5)
+        var pts: [PSDPoint] = []
+        for i in 0..<freqs.count { if freqs[i] <= 10.0 { pts.append(PSDPoint(f: freqs[i], p: power[i])) } }
+        self.psd = pts
+        // Peak in 2–5 Hz
+        let band = pts.filter { $0.f >= 2.0 && $0.f <= 5.0 }
+        self.peakHz = band.max(by: { $0.p < $1.p })?.f ?? 0
         // Auto-focus on the largest fast phase (reset): window around the biggest |velocity| spike
         let totalT = Double(tmp.count) * dt
         if let maxIdx = tmp.indices.max(by: { abs(tmp[$0].eyeVel) < abs(tmp[$1].eyeVel) }) {
@@ -98,6 +113,28 @@ struct NystagmusResultView: View {
             .chartXScale(domain: window)
             .frame(height: 160)
             .padding(.horizontal)
+
+            // Welch PSD (position) 0–10 Hz
+            Chart(psd) {
+                LineMark(x: .value("Hz", $0.f), y: .value("Power", $0.p))
+                    .foregroundStyle(Color.purple)
+            }
+            .chartXAxisLabel("Hz")
+            .chartYAxisLabel("PSD (deg²/Hz)")
+            .chartXScale(domain: 0...10)
+            .frame(height: 160)
+            .padding(.horizontal)
+            .overlay(alignment: .leading) {
+                if peakHz > 0 {
+                    GeometryReader { geo in
+                        let x = geo.size.width * CGFloat(peakHz / 10.0)
+                        Rectangle()
+                            .fill(Color.purple.opacity(0.15))
+                            .frame(width: 2)
+                            .offset(x: x)
+                    }
+                }
+            }
         }
         .padding(.bottom)
         }
@@ -171,6 +208,107 @@ struct NystagmusResultView: View {
             i += factor
         }
         if s.count % factor != 0 { out.append(s.last!) }
+        return out
+    }
+
+    // MARK: - Analysis helpers (masking, filtering, PSD)
+    private func maskFastPhases(pos: [Double], vel: [Double], vth: Double) -> [Double] {
+        var out = pos
+        for i in 0..<min(pos.count, vel.count) {
+            if abs(vel[i]) > vth { out[i] = .nan }
+        }
+        return out
+    }
+
+    private func interpolateNaNs(_ x: [Double]) -> [Double] {
+        var y = x
+        var i = 0
+        let n = y.count
+        while i < n {
+            if y[i].isNaN {
+                let start = i - 1
+                var j = i
+                while j < n && y[j].isNaN { j += 1 }
+                let end = j
+                let left = start >= 0 ? y[start] : (end < n ? y[end] : 0)
+                let right = end < n ? y[end] : left
+                let len = max(1, end - start)
+                for k in i..<end {
+                    let t = Double(k - i + 1) / Double(len)
+                    y[k] = left + (right - left) * t
+                }
+                i = end
+            } else { i += 1 }
+        }
+        return y
+    }
+
+    private func movingAvgD(_ x: [Double], window: Int) -> [Double] {
+        guard window > 1 else { return x }
+        var y: [Double] = []
+        y.reserveCapacity(x.count)
+        var buf: [Double] = []
+        for v in x {
+            buf.append(v)
+            if buf.count > window { buf.removeFirst() }
+            y.append(buf.reduce(0,+) / Double(buf.count))
+        }
+        return y
+    }
+
+    private func highPass(_ x: [Double], cutoffHz: Double, fs: Double) -> [Double] {
+        // Simple HP via subtracting long-window moving average
+        let period = max(1, Int(fs / max(cutoffHz, 1e-3))) // ~1/cutoff seconds
+        let trend = movingAvgD(x, window: period)
+        return zip(x, trend).map { $0 - $1 }
+    }
+
+    private func hann(_ n: Int) -> [Double] {
+        guard n > 1 else { return Array(repeating: 1, count: max(n,1)) }
+        return (0..<n).map { 0.5 - 0.5 * cos(2.0 * .pi * Double($0) / Double(n-1)) }
+    }
+
+    private func welchPSD(_ x: [Double], fs: Double, nperseg: Int, overlap: Double) -> ([Double],[Double]) {
+        let n = x.count
+        let seg = min(nperseg, n)
+        let step = max(1, Int(Double(seg) * (1.0 - overlap)))
+        let window = hann(seg)
+        var acc: [Double] = Array(repeating: 0, count: seg/2+1)
+        var count = 0
+        var start = 0
+        while start + seg <= n {
+            let slice = Array(x[start..<(start+seg)])
+            let mean = slice.reduce(0,+) / Double(seg)
+            var w: [Double] = []
+            w.reserveCapacity(seg)
+            for i in 0..<seg { w.append((slice[i] - mean) * window[i]) }
+            let p = periodogram(w)
+            for i in 0..<acc.count { acc[i] += p[i] }
+            count += 1
+            start += step
+        }
+        if count == 0 { return ([],[]) }
+        let scale = 1.0 / Double(count)
+        let psd = acc.map { $0 * scale / fs }
+        let freqs = (0..<acc.count).map { fs * Double($0) / Double(seg) }
+        return (freqs, psd)
+    }
+
+    private func periodogram(_ x: [Double]) -> [Double] {
+        // Naive DFT power for real signal; returns bins 0..N/2
+        let n = x.count
+        let half = n/2
+        var out: [Double] = Array(repeating: 0, count: half+1)
+        for k in 0...half {
+            var re = 0.0, im = 0.0
+            let twoPiNk = 2.0 * .pi * Double(k) / Double(n)
+            for (i, v) in x.enumerated() {
+                let angle = twoPiNk * Double(i)
+                re += v * cos(angle)
+                im -= v * sin(angle)
+            }
+            out[k] = (re*re + im*im) / Double(n)
+        }
         return out
     }
 }
