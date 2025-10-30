@@ -165,8 +165,7 @@ private struct SaccadePanel: View {
             // Degrees chart (fixed domain)
             Chart {
                 // Target position as square wave using duplicate points at jumps
-                ForEach(stepPoints(slice), id: \.
-                    0) { p in
+                ForEach(stepPoints(slice), id: \.0) { p in
                     LineMark(x: .value("t", p.0), y: .value("deg", p.1))
                         .foregroundStyle(by: .value("Series", "Target"))
                 }
