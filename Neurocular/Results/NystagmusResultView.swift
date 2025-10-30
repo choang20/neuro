@@ -20,8 +20,8 @@ struct NystagmusResultView: View {
 
     private let samples: [Sample]
     @State private var window: ClosedRange<Double>
-    @State private var hideFastPhases = false
-    @State private var smoothWindow = 3
+    @State private var hideFastPhases = true
+    @State private var smoothWindow = 5
 
     init(examId: ExamId, navigation_path: Binding<NavigationPath>, storage_manager: Binding<StorageManager>) {
         self.examId = examId
@@ -60,18 +60,28 @@ struct NystagmusResultView: View {
 
             controls
 
-            Chart(filtered(samples)) {
+            // Position (deg)
+            Chart(filteredDegrees(samples)) {
                 LineMark(x: .value("t", $0.t), y: .value("deg", $0.eyeDeg))
                     .foregroundStyle(Color.blue)
+            }
+            .chartXAxisLabel("Seconds")
+            .chartYAxisLabel("Degrees")
+            .chartYScale(domain: -45...45)
+            .chartXScale(domain: window)
+            .frame(height: 220)
+            .padding(.horizontal)
+
+            // Velocity (deg/s)
+            Chart(filteredVelocity(samples)) {
                 LineMark(x: .value("t", $0.t), y: .value("vel", $0.eyeVel))
                     .foregroundStyle(Color.green)
             }
             .chartXAxisLabel("Seconds")
-            .chartYAxisLabel(position: .leading) { Text("Degrees") }
-            .chartYAxisLabel(position: .trailing) { Text("Velocity") }
-            .chartYScale(domain: -45...45)
+            .chartYAxisLabel("Velocity (deg/s)")
+            .chartYScale(domain: -200...200)
             .chartXScale(domain: window)
-            .frame(height: 260)
+            .frame(height: 160)
             .padding(.horizontal)
         }
         .padding(.bottom)
@@ -96,7 +106,7 @@ struct NystagmusResultView: View {
         .padding(.horizontal)
     }
 
-    private func filtered(_ s: [Sample]) -> [Sample] {
+    private func filteredDegrees(_ s: [Sample]) -> [Sample] {
         var out = s
         if hideFastPhases {
             out = out.map { smp in
@@ -104,24 +114,43 @@ struct NystagmusResultView: View {
             }
         }
         if smoothWindow > 1 {
-            out = movingAverage(out, window: smoothWindow)
+            out = movingAverageDeg(out, window: smoothWindow)
         }
         return out.filter { $0.t >= window.lowerBound && $0.t <= window.upperBound }
     }
 
-    private func movingAverage(_ s: [Sample], window: Int) -> [Sample] {
+    private func filteredVelocity(_ s: [Sample]) -> [Sample] {
+        var out = s
+        if smoothWindow > 1 {
+            out = movingAverageVel(out, window: max(3, smoothWindow/2))
+        }
+        return out.filter { $0.t >= window.lowerBound && $0.t <= window.upperBound }
+    }
+
+    private func movingAverageDeg(_ s: [Sample], window: Int) -> [Sample] {
         guard window > 1 else { return s }
         var out: [Sample] = []
         out.reserveCapacity(s.count)
         var buf: [Double] = []
-        var vbuf: [Double] = []
         for (i, smp) in s.enumerated() {
             if !smp.eyeDeg.isNaN { buf.append(smp.eyeDeg) } else { buf.append(Double.nan) }
-            vbuf.append(smp.eyeVel)
-            if buf.count > window { buf.removeFirst(); vbuf.removeFirst() }
+            if buf.count > window { buf.removeFirst() }
             let deg = buf.filter{ !$0.isNaN }.reduce(0, +) / Double(max(1, buf.filter{ !$0.isNaN }.count))
+            out.append(Sample(t: smp.t, eyeDeg: deg, eyeVel: smp.eyeVel))
+        }
+        return out
+    }
+
+    private func movingAverageVel(_ s: [Sample], window: Int) -> [Sample] {
+        guard window > 1 else { return s }
+        var out: [Sample] = []
+        out.reserveCapacity(s.count)
+        var vbuf: [Double] = []
+        for smp in s {
+            vbuf.append(smp.eyeVel)
+            if vbuf.count > window { vbuf.removeFirst() }
             let vel = vbuf.reduce(0, +) / Double(vbuf.count)
-            out.append(Sample(t: smp.t, eyeDeg: deg, eyeVel: vel))
+            out.append(Sample(t: smp.t, eyeDeg: smp.eyeDeg, eyeVel: vel))
         }
         return out
     }
