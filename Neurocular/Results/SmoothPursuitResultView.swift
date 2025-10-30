@@ -15,6 +15,7 @@ struct SmoothPursuitResultView: View {
     private let targetData: [PlotValue]
     private let nFrames: Int
     @State private var scaleToFit: Bool = true
+    @State private var showError: Bool = false
 
     init(examId: ExamId, navigation_path: Binding<NavigationPath>, storage_manager: Binding<StorageManager>) {
         self.examId = examId
@@ -135,6 +136,11 @@ struct SmoothPursuitResultView: View {
                         }
                     }
                     ToolbarItem(placement: .topBarTrailing) {
+                        Button(action: { showError.toggle() }) {
+                            Image(systemName: showError ? "waveform.path" : "waveform")
+                        }
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
                         Button("Next") {
                             navigation_path.append(ResultRoute(examId: examId, kind: "saccades"))
                         }
@@ -152,6 +158,13 @@ struct SmoothPursuitResultView: View {
                     LineMark(x: .value("Time", t.elapsed), y: .value("Gaze Angle", t.value))
                         .foregroundStyle(Color.red.opacity(0.6))
                         .lineStyle(StrokeStyle(lineWidth: 2))
+                }
+                if showError {
+                    ForEach(errorSeries()) { e in
+                        LineMark(x: .value("Time", e.elapsed), y: .value("Gaze Angle", e.value))
+                            .foregroundStyle(Color.orange.opacity(0.9))
+                            .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5,3]))
+                    }
                 }
             }
             .chartXAxisLabel("Seconds")
@@ -189,6 +202,24 @@ struct SmoothPursuitResultView: View {
         let targetAmp = (targetData.map { Double($0.value) }.max() ?? 0) - (targetData.map { Double($0.value) }.min() ?? 0)
         if targetAmp < 10 { return -5...5 }
         return -20...20
+    }
+
+    private func errorSeries() -> [PlotValue] {
+        // Build average eye by frame_index
+        var sumByFrame: [Int: (sum: Double, count: Int, elapsed: Double)] = [:]
+        for p in plotData {
+            let entry = sumByFrame[p.frame_index] ?? (0, 0, p.elapsed)
+            sumByFrame[p.frame_index] = (entry.sum + Double(p.value), entry.count + 1, entry.elapsed)
+        }
+        var out: [PlotValue] = []
+        for t in targetData {
+            if let e = sumByFrame[t.frame_index], e.count > 0 {
+                let avgEye = e.sum / Double(e.count)
+                let err = avgEye - Double(t.value)
+                out.append(PlotValue(frame_index: t.frame_index, elapsed: e.elapsed, value: Float(err)))
+            }
+        }
+        return out.sorted { $0.frame_index < $1.frame_index }
     }
 }
 
