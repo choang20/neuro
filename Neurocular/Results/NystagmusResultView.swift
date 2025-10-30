@@ -28,6 +28,7 @@ struct NystagmusResultView: View {
     @State private var window: ClosedRange<Double>
     @State private var hideFastPhases = true
     @State private var smoothWindow = 4
+    @State private var showBaselineOnly = false
 
     init(examId: ExamId, navigation_path: Binding<NavigationPath>, storage_manager: Binding<StorageManager>) {
         self.examId = examId
@@ -55,7 +56,7 @@ struct NystagmusResultView: View {
         // Build analysis signal per neuro-ophthalmologist guidance
         let masked = Self.maskFastPhases(pos: eyeDeg, vel: eyeVel, vth: 30)
         let filled = Self.interpolateNaNs(masked)
-        let detrended = Self.highPass(filled, cutoffHz: 0.2, fs: 60.0)
+        let detrended = Self.highPass(filled, cutoffHz: 0.5, fs: 60.0)
         // Slow baseline (LP 0.4 Hz) and narrowband sawtooth (2–5 Hz with 3 harmonics)
         let baseline = Self.lowPassMA(filled, cutoffHz: 0.4, fs: 60.0)
         let saw = Self.reconstructHarmonics(detrended, fs: 60.0, fmin: 2.0, fmax: 5.0, harmonics: 3)
@@ -73,21 +74,8 @@ struct NystagmusResultView: View {
         self.peakHz = band.max(by: { $0.p < $1.p })?.f ?? 0
         // Auto-focus on the largest fast phase (reset): window around the biggest |velocity| spike
         let totalT = Double(tmp.count) * dt
-        if let maxIdx = tmp.indices.max(by: { abs(tmp[$0].eyeVel) < abs(tmp[$1].eyeVel) }) {
-            let t0 = tmp[maxIdx].t
-            // Require a meaningful spike or fall back to full range
-            if abs(tmp[maxIdx].eyeVel) > 40 { // deg/s
-                let start = max(0.0, t0 - 0.8)
-                let end = min(totalT, t0 + 1.2)
-                self._window = State(initialValue: start...end)
-                // Use slightly lighter smoothing in focused window
-                self._smoothWindow = State(initialValue: 4)
-            } else {
-                self._window = State(initialValue: 0...totalT)
-            }
-        } else {
-            self._window = State(initialValue: 0...totalT)
-        }
+        // Show full recording span by default so slow baseline curvature is visible
+        self._window = State(initialValue: 0...totalT)
     }
 
     var body: some View {
@@ -99,22 +87,27 @@ struct NystagmusResultView: View {
                 Spacer()
             }.padding(.horizontal)
 
+            // Baseline-only toggle to inspect slow sinusoid over full span
+            Toggle("Show baseline only", isOn: $showBaselineOnly)
+                .toggleStyle(SwitchToggleStyle(tint: .gray))
+                .padding(.horizontal)
+
             // Position (deg)
             Chart {
-                // Masked position (windowed)
-                ForEach(filteredDegrees(samples)) { s in
-                    LineMark(x: .value("t", s.t), y: .value("deg", s.eyeDeg))
-                        .foregroundStyle(Color.blue)
+                if !showBaselineOnly {
+                    ForEach(filteredDegrees(samples)) { s in
+                        LineMark(x: .value("t", s.t), y: .value("deg", s.eyeDeg))
+                            .foregroundStyle(Color.blue)
+                    }
+                    ForEach(seriesFrom(reconCombined)) { p in
+                        LineMark(x: .value("t", p.t), y: .value("deg", p.y))
+                            .foregroundStyle(Color.red.opacity(0.6))
+                    }
                 }
-                // Slow baseline (LP)
+                // Always draw slow baseline for context
                 ForEach(seriesFrom(baselineLP)) { p in
                     LineMark(x: .value("t", p.t), y: .value("deg", p.y))
-                        .foregroundStyle(Color.gray.opacity(0.7))
-                }
-                // Reconstructed sine+sawtooth
-                ForEach(seriesFrom(reconCombined)) { p in
-                    LineMark(x: .value("t", p.t), y: .value("deg", p.y))
-                        .foregroundStyle(Color.red.opacity(0.6))
+                        .foregroundStyle(Color.gray.opacity(0.8))
                 }
             }
             .chartXAxisLabel("Seconds")
