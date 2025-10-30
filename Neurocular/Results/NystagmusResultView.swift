@@ -100,29 +100,30 @@ struct NystagmusResultView: View {
             }.padding(.horizontal)
 
             // Position (deg)
-            Chart(filteredDegrees(samples)) {
-                LineMark(x: .value("t", $0.t), y: .value("deg", $0.eyeDeg))
-                    .foregroundStyle(Color.blue)
-            }
-            // Overlay: baseline LP and combined reconstruction
-            .overlay {
-                Chart(seriesFrom(baselineLP)) {
-                    LineMark(x: .value("t", $0.t), y: .value("deg", $0.y))
+            Chart {
+                // Masked position (windowed)
+                ForEach(filteredDegrees(samples)) { s in
+                    LineMark(x: .value("t", s.t), y: .value("deg", s.eyeDeg))
+                        .foregroundStyle(Color.blue)
+                }
+                // Slow baseline (LP)
+                ForEach(seriesFrom(baselineLP)) { p in
+                    LineMark(x: .value("t", p.t), y: .value("deg", p.y))
                         .foregroundStyle(Color.gray.opacity(0.7))
                 }
-                .chartXScale(domain: window)
-                .chartYScale(domain: -45...45)
-                Chart(seriesFrom(reconCombined)) {
-                    LineMark(x: .value("t", $0.t), y: .value("deg", $0.y))
+                // Reconstructed sine+sawtooth
+                ForEach(seriesFrom(reconCombined)) { p in
+                    LineMark(x: .value("t", p.t), y: .value("deg", p.y))
                         .foregroundStyle(Color.red.opacity(0.6))
                 }
-                .chartXScale(domain: window)
-                .chartYScale(domain: -45...45)
             }
             .chartXAxisLabel("Seconds")
             .chartYAxisLabel("Degrees")
             .chartYScale(domain: -45...45)
             .chartXScale(domain: window)
+            .chartPlotStyle { plot in
+                plot.clipShape(Rectangle())
+            }
             .frame(height: 220)
             .padding(.horizontal)
             .padding(.top, 8)
