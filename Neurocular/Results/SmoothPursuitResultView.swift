@@ -90,8 +90,9 @@ struct SmoothPursuitResultView: View {
         }
         func pipeline(_ xs: [Float]) -> [Float] {
             let dt: Float = 1.0 / 60.0
-            let v = derivative(xs, dt: dt)
-            let masked = maskAndInterpolate(values: xs, velocity: v, threshold: 120)
+            let pre = movingAvg(xs, window: 5)
+            let v = derivative(pre, dt: dt)
+            let masked = maskAndInterpolate(values: pre, velocity: v, threshold: 90)
             let sg = sgSmooth11(masked)
             return movingAvg(sg, window: 13)
         }
