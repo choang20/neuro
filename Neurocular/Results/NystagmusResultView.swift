@@ -50,11 +50,11 @@ struct NystagmusResultView: View {
         for i in 0..<eyeDeg.count { tmp.append(Sample(t: Double(i)*dt, eyeDeg: eyeDeg[i], eyeVel: eyeVel[i])) }
         self.samples = tmp
         // Build analysis signal per neuro-ophthalmologist guidance
-        let masked = maskFastPhases(pos: eyeDeg, vel: eyeVel, vth: 30)
-        let filled = interpolateNaNs(masked)
-        let detrended = highPass(filled, cutoffHz: 0.2, fs: 60.0)
+        let masked = Self.maskFastPhases(pos: eyeDeg, vel: eyeVel, vth: 30)
+        let filled = Self.interpolateNaNs(masked)
+        let detrended = Self.highPass(filled, cutoffHz: 0.2, fs: 60.0)
         // Welch PSD on detrended position
-        let (freqs, power) = welchPSD(detrended, fs: 60.0, nperseg: 256, overlap: 0.5)
+        let (freqs, power) = Self.welchPSD(detrended, fs: 60.0, nperseg: 256, overlap: 0.5)
         var pts: [PSDPoint] = []
         for i in 0..<freqs.count { if freqs[i] <= 10.0 { pts.append(PSDPoint(f: freqs[i], p: power[i])) } }
         self.psd = pts
@@ -212,7 +212,7 @@ struct NystagmusResultView: View {
     }
 
     // MARK: - Analysis helpers (masking, filtering, PSD)
-    private func maskFastPhases(pos: [Double], vel: [Double], vth: Double) -> [Double] {
+    private static func maskFastPhases(pos: [Double], vel: [Double], vth: Double) -> [Double] {
         var out = pos
         for i in 0..<min(pos.count, vel.count) {
             if abs(vel[i]) > vth { out[i] = .nan }
@@ -220,7 +220,7 @@ struct NystagmusResultView: View {
         return out
     }
 
-    private func interpolateNaNs(_ x: [Double]) -> [Double] {
+    private static func interpolateNaNs(_ x: [Double]) -> [Double] {
         var y = x
         var i = 0
         let n = y.count
@@ -243,7 +243,7 @@ struct NystagmusResultView: View {
         return y
     }
 
-    private func movingAvgD(_ x: [Double], window: Int) -> [Double] {
+    private static func movingAvgD(_ x: [Double], window: Int) -> [Double] {
         guard window > 1 else { return x }
         var y: [Double] = []
         y.reserveCapacity(x.count)
@@ -256,19 +256,19 @@ struct NystagmusResultView: View {
         return y
     }
 
-    private func highPass(_ x: [Double], cutoffHz: Double, fs: Double) -> [Double] {
+    private static func highPass(_ x: [Double], cutoffHz: Double, fs: Double) -> [Double] {
         // Simple HP via subtracting long-window moving average
         let period = max(1, Int(fs / max(cutoffHz, 1e-3))) // ~1/cutoff seconds
         let trend = movingAvgD(x, window: period)
         return zip(x, trend).map { $0 - $1 }
     }
 
-    private func hann(_ n: Int) -> [Double] {
+    private static func hann(_ n: Int) -> [Double] {
         guard n > 1 else { return Array(repeating: 1, count: max(n,1)) }
         return (0..<n).map { 0.5 - 0.5 * cos(2.0 * .pi * Double($0) / Double(n-1)) }
     }
 
-    private func welchPSD(_ x: [Double], fs: Double, nperseg: Int, overlap: Double) -> ([Double],[Double]) {
+    private static func welchPSD(_ x: [Double], fs: Double, nperseg: Int, overlap: Double) -> ([Double],[Double]) {
         let n = x.count
         let seg = min(nperseg, n)
         let step = max(1, Int(Double(seg) * (1.0 - overlap)))
@@ -294,7 +294,7 @@ struct NystagmusResultView: View {
         return (freqs, psd)
     }
 
-    private func periodogram(_ x: [Double]) -> [Double] {
+    private static func periodogram(_ x: [Double]) -> [Double] {
         // Naive DFT power for real signal; returns bins 0..N/2
         let n = x.count
         let half = n/2
