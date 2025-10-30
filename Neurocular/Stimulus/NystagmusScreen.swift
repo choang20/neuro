@@ -41,23 +41,32 @@ struct NystagmusScreen: View {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             var cancellable: AnyCancellable?
             var count = 0
+            var graceMiss = 0 // ignore brief dips up to 2 frames
             cancellable = spatial_emitter.subject.sink { frame in
                 if case .FaceDetected(let f) = frame {
                     var angle: Float? = nil
-                    if let d = HeadYawTracker.shared.update(with: f.transforms, isTracked: !f.wild_guess) {
-                        angle = d
-                    } else if let z = HeadYawTracker.shared.zeroedYaw(f.transforms) {
+                    // Prefer raw zeroed yaw for gating; use smoothed only if needed
+                    if let z = HeadYawTracker.shared.zeroedYaw(f.transforms) {
                         angle = z
+                    } else if let d = HeadYawTracker.shared.update(with: f.transforms, isTracked: !f.wild_guess) {
+                        angle = d
                     }
                     if let a = angle {
                         if predicate(a) {
                             count += 1
+                            graceMiss = 0
                             if count >= requiredFrames {
                                 cancellable?.cancel()
                                 continuation.resume()
                             }
                         } else {
-                            count = 0
+                            // allow brief misses to prevent resets from single bad frames
+                            if graceMiss < 2 {
+                                graceMiss += 1
+                            } else {
+                                count = 0
+                                graceMiss = 0
+                            }
                         }
                     }
                 }
@@ -65,7 +74,7 @@ struct NystagmusScreen: View {
         }
     }
 
-    private func calibrateBaseline(seconds: Double = 0.8) async {
+    private func calibrateBaseline(seconds: Double = 1.2) async {
         var samples: [Float] = []
         var cancellable: AnyCancellable?
         cancellable = spatial_emitter.subject.sink { frame in
@@ -99,11 +108,11 @@ struct NystagmusScreen: View {
             // Calibrate baseline with a short median window
             await calibrateBaseline()
             speak("Slowly move your head as far as possible to the left while you look at the red dot.")
-            await waitUntilStable(predicate: { $0 <= -45 }, requiredFrames: 6)
+            await waitUntilStable(predicate: { $0 <= -40 }, requiredFrames: 4)
             speak("Hold this position; keep looking at the red dot.")
             await countToFive()
             speak("Now slowly turn your head all the way to the right while you look at the red dot.")
-            await waitUntilStable(predicate: { $0 >= 45 }, requiredFrames: 6)
+            await waitUntilStable(predicate: { $0 >= 40 }, requiredFrames: 4)
             speak("Hold this position; keep looking at the red dot.")
             await countToFive()
             // Optionally repeat cycles as needed
