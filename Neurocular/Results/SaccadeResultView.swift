@@ -216,6 +216,21 @@ private struct SaccadePanel: View {
                     LineMark(x: .value("t", s.t), y: .value("deg", s.eyeDeg))
                         .foregroundStyle(by: .value("Series", "Eye"))
                 }
+                // Annotate step onset (t=0) and latency (if available)
+                RuleMark(x: .value("t", 0.0))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4,3]))
+                    .foregroundStyle(Color.gray.opacity(0.6))
+                if let m = metrics {
+                    let tLatency = Double(m.latencyMs) / 1000.0
+                    RuleMark(x: .value("t", tLatency))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [2,2]))
+                        .foregroundStyle(Color.orange.opacity(0.9))
+                        .annotation(position: .top, alignment: .center) {
+                            Text("Latency")
+                                .font(.caption2)
+                                .foregroundStyle(Color.orange)
+                        }
+                }
             }
             .chartForegroundStyleScale([
                 "Target": .red,
