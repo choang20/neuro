@@ -55,6 +55,7 @@ struct SaccadeResultView: View {
         let positions = frames.stimulus_positions.sorted { $0.timestamp < $1.timestamp }
         var posIndex = 0
         let ppi: Double = 460.0
+        let scale: Double = Double(UIScreen.main.scale) // points→pixels conversion
         let screenMidX = Double(UIScreen.main.bounds.midX)
         var targetDeg: [Double] = []
         targetDeg.reserveCapacity(n)
@@ -64,8 +65,10 @@ struct SaccadeResultView: View {
                 posIndex += 1
             }
             let pxX = positions.isEmpty ? screenMidX : Double(positions[posIndex].value.x)
-            let deltaPx = pxX - screenMidX
-            let inchesX = deltaPx / ppi
+            let deltaPts = pxX - screenMidX
+            // Convert SwiftUI points → pixels before PPI conversion
+            let deltaPixels = deltaPts * scale
+            let inchesX = deltaPixels / ppi
             // Use a fixed viewing distance (60cm) so steps are truly flat between jumps
             let dist = 600.0 / 25.4
             let ang = atan2(inchesX, dist) * 180.0 / .pi
@@ -86,8 +89,11 @@ struct SaccadeResultView: View {
         sdeg.reserveCapacity(interp.count)
         for f in interp {
             let inches = Double(calculate_distance_from_screen(from_transforms: f.transforms.transforms))
-            let k = max(ppi * inches * tan(.pi / 180.0), 1e-6)
-            sdeg.append(f.speed / k)
+            let pixelsPerDeg = max(ppi * inches * tan(.pi / 180.0), 1e-6)
+            let speedPointsPerSec = f.speed
+            // Convert points/s → pixels/s before turning into deg/s
+            let speedPixelsPerSec = speedPointsPerSec * scale
+            sdeg.append(speedPixelsPerSec / pixelsPerDeg)
         }
         self.speedDeg = sdeg
     }
