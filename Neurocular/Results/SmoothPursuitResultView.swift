@@ -100,14 +100,18 @@ struct SmoothPursuitResultView: View {
             let sg1 = sgSmooth11(masked)
             let sg2 = sgSmooth11(sg1)
             let sg3 = sgSmooth11(sg2)
-            return movingAvg(sg3, window: 31)
+            let lp = movingAvg(sg3, window: 31)
+            // Spline fit across coarse pivots with slope cap, then resample
+            let spline = Self.splineResample(lp, stride: 3, slopeCapDegPerSec: 50)
+            // Keep original length so the time axis remains correct
+            return spline
         }
         let smoothed = ArrayByEye<Float>(
             left: pipeline(biased.left),
             right: pipeline(biased.right)
         )
-        self.plotData = smoothed.consume_with(tidy_gaze_angles)
-        self.nFrames = transforms.count
+        let localPlotData = smoothed.consume_with(tidy_gaze_angles)
+        let localNFrames = transforms.count
 
         // Compute target angle (deg) from target pixel X and distance per frame
         let ppi: Double = 460.0
@@ -121,7 +125,11 @@ struct SmoothPursuitResultView: View {
             let deg = atan2(inchesX, max(distInches, 1e-3)) * 180.0 / .pi
             target.append(PlotValue(frame_index: i, elapsed: Double(i) / 60.0, value: Float(deg)))
         }
-        self.targetData = target
+        let localTarget = target
+        // Initialize stored properties in one place (avoid using self before init complete)
+        self.plotData = localPlotData
+        self.nFrames = localNFrames
+        self.targetData = localTarget
     }
 
     var body: some View {
@@ -221,6 +229,60 @@ struct SmoothPursuitResultView: View {
             }
         }
         return out.sorted { $0.frame_index < $1.frame_index }
+    }
+
+    // MARK: - Spline helpers (display only)
+    private static func downsample(_ xs: [Float], factor: Int) -> [Float] {
+        guard factor > 1 else { return xs }
+        var out: [Float] = []
+        out.reserveCapacity(xs.count / factor + 1)
+        var i = 0
+        while i < xs.count { out.append(xs[i]); i += factor }
+        if xs.count % factor != 0 { out.append(xs.last!) }
+        return out
+    }
+
+    private static func splineResample(_ xs: [Float], stride: Int, slopeCapDegPerSec: Float) -> [Float] {
+        guard xs.count > stride * 2 else { return xs }
+        let dt: Float = 1.0 / 60.0
+        let h = Float(stride)
+        // Build pivot points
+        var pivots: [Float] = []
+        var idxs: [Int] = []
+        var i = 0
+        while i < xs.count { pivots.append(xs[i]); idxs.append(i); i += stride }
+        if idxs.last! != xs.count - 1 { pivots.append(xs.last!); idxs.append(xs.count - 1) }
+        let mCount = pivots.count
+        // Slopes (per sample)
+        var m: [Float] = Array(repeating: 0, count: mCount)
+        let cap = slopeCapDegPerSec * dt
+        for j in 0..<mCount {
+            if j == 0 {
+                m[j] = (pivots[min(1, mCount-1)] - pivots[0]) / Float(idxs[min(1, mCount-1)] - idxs[0])
+            } else if j == mCount - 1 {
+                m[j] = (pivots[j] - pivots[j-1]) / Float(idxs[j] - idxs[j-1])
+            } else {
+                m[j] = (pivots[j+1] - pivots[j-1]) / Float(idxs[j+1] - idxs[j-1])
+            }
+            m[j] = max(-cap, min(cap, m[j]))
+        }
+        // Resample back to original grid using Hermite
+        var out = xs
+        for j in 0..<(mCount-1) {
+            let x0 = pivots[j], x1 = pivots[j+1]
+            let i0 = idxs[j], i1 = idxs[j+1]
+            let segLen = max(1, i1 - i0)
+            for s in 0...segLen {
+                let t = Float(s) / Float(segLen)
+                let h00 = 2*t*t*t - 3*t*t + 1
+                let h10 = t*t*t - 2*t*t + t
+                let h01 = -2*t*t*t + 3*t*t
+                let h11 = t*t*t - t*t
+                let val = h00*x0 + h10*(m[j]*Float(segLen)) + h01*x1 + h11*(m[j+1]*Float(segLen))
+                out[i0 + s] = val
+            }
+        }
+        return out
     }
 }
 
