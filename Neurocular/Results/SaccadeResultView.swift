@@ -113,9 +113,30 @@ struct SaccadeResultView: View {
             // Top spacer to avoid any overlap with nav bar on compact devices
             Rectangle().fill(Color.clear).frame(height: 8)
 
-            ForEach(steps) { st in
-                SaccadePanel(title: st.title, slice: st.slice, metrics: (latencyMs: st.latencyMs, peakVel: st.peakVel, endpointErr: st.endpointErr))
+            // Single overview plot: full timeline target (square wave) and eye
+            Chart {
+                ForEach(stepPointsFull(samples), id: \.0) { p in
+                    LineMark(x: .value("t", p.0), y: .value("deg", p.1))
+                        .foregroundStyle(by: .value("Series", "Target"))
+                }
+                ForEach(samples) { s in
+                    LineMark(x: .value("t", s.t), y: .value("deg", s.eyeDeg))
+                        .foregroundStyle(by: .value("Series", "Eye"))
+                }
             }
+            .chartForegroundStyleScale(["Target": .red, "Eye": .blue])
+            .chartYAxis {
+                AxisMarks(position: .leading, values: [-45, -30, -15, 0, 15, 30, 45]) { value in
+                    AxisGridLine()
+                    AxisValueLabel { Text("\(value.as(Int.self)!)°") }
+                }
+            }
+            .chartXAxisLabel("Seconds")
+            .chartYAxisLabel("Degrees")
+            .chartYScale(domain: -45...45)
+            .chartXScale(domain: [0, samples.last?.t ?? 0])
+            .frame(height: 260)
+            .padding(.horizontal)
         }
         .padding(.bottom)
         .navigationBarTitleDisplayMode(.inline)
@@ -182,6 +203,27 @@ struct SaccadeResultView: View {
         var sum = 0.0, cnt = 0.0
         for s in slice where s.t >= lo && s.t <= hi { sum += (s.eyeDeg - s.targetDeg); cnt += 1 }
         return cnt > 0 ? sum/cnt : 0
+    }
+
+    // Build square-wave points over the full session by duplicating points at target jumps
+    private func stepPointsFull(_ s: [Sample]) -> [(Double, Double)] {
+        guard !s.isEmpty else { return [] }
+        var pts: [(Double, Double)] = []
+        pts.reserveCapacity(s.count * 2)
+        var prev = s[0].targetDeg
+        pts.append((s[0].t, prev))
+        for i in 1..<s.count {
+            let curr = s[i].targetDeg
+            let t = s[i].t
+            if curr != prev {
+                pts.append((t, prev))
+                pts.append((t, curr))
+                prev = curr
+            } else {
+                pts.append((t, curr))
+            }
+        }
+        return pts
     }
 }
 
