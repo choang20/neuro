@@ -41,7 +41,7 @@ struct NystagmusScreen: View {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             var cancellable: AnyCancellable?
             var count = 0
-            var graceMiss = 0 // ignore brief dips up to 2 frames
+            var graceMiss = 0 // no grace by default (set to 0)
             cancellable = spatial_emitter.subject.sink { frame in
                 if case .FaceDetected(let f) = frame {
                     var angle: Float? = nil
@@ -60,13 +60,9 @@ struct NystagmusScreen: View {
                                 continuation.resume()
                             }
                         } else {
-                            // allow brief misses to prevent resets from single bad frames
-                            if graceMiss < 2 {
-                                graceMiss += 1
-                            } else {
-                                count = 0
-                                graceMiss = 0
-                            }
+                            // no grace to minimize perceived delay
+                            count = 0
+                            graceMiss = 0
                         }
                     }
                 }
@@ -107,12 +103,12 @@ struct NystagmusScreen: View {
             HeadYawTracker.shared.reset()
             // Calibrate baseline with a short median window
             await calibrateBaseline()
-            speak("Turn left to forty degrees and hold.")
-            await waitUntilStable(predicate: { abs($0) >= 40 }, requiredFrames: 4)
+            speak("Turn left and hold.")
+            await waitUntilStable(predicate: { abs($0) >= 40 }, requiredFrames: 2)
             speak("Hold.")
             await countToFive()
-            speak("Turn right to forty degrees and hold.")
-            await waitUntilStable(predicate: { abs($0) >= 40 }, requiredFrames: 4)
+            speak("Turn right and hold.")
+            await waitUntilStable(predicate: { abs($0) >= 40 }, requiredFrames: 2)
             speak("Hold.")
             await countToFive()
             // Optionally repeat cycles as needed

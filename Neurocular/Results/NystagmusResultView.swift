@@ -96,11 +96,9 @@ struct NystagmusResultView: View {
             // Removed baseline-only toggle for a simpler view
 
             // Position (deg)
-            let segs = segments(filteredDegrees(samples))
-            let eyeSeries = eyeSeriesFrom(segs)
+            // Baseline-only display for a smooth, sine-like curve; eye/sawtooth hidden to avoid jaggies
             let baselineSeries = seriesFrom(baselineLP)
-            let reconSeries = hasNystagmus ? seriesFrom(reconCombined) : []
-            positionChart(eyeSeries: eyeSeries, baselineSeries: baselineSeries, reconSeries: reconSeries)
+            positionChart(eyeSeries: [], baselineSeries: baselineSeries, reconSeries: [])
             .chartXAxisLabel("Seconds")
             .chartYAxisLabel("Degrees")
             .chartYScale(domain: -45...45)
