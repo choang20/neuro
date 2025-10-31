@@ -25,6 +25,7 @@ struct NystagmusResultView: View {
     private let baselineLP: [Double]
     private let reconSaw: [Double]
     private let reconCombined: [Double]
+    private let hasNystagmus: Bool
     @State private var window: ClosedRange<Double>
     @State private var hideFastPhases = true
     @State private var smoothWindow = 4
@@ -73,6 +74,10 @@ struct NystagmusResultView: View {
         // Peak in 2–5 Hz
         let band = pts.filter { $0.f >= 2.0 && $0.f <= 5.0 }
         self.peakHz = band.max(by: { $0.p < $1.p })?.f ?? 0
+        // Simple nystagmus detector: band power ratio (2–5 Hz vs 0.5–10 Hz)
+        let bandPower = band.reduce(0) { $0 + $1.p }
+        let totalPower = pts.filter { $0.f >= 0.5 && $0.f <= 10.0 }.reduce(0) { $0 + $1.p }
+        self.hasNystagmus = (totalPower > 0) ? (bandPower/totalPower) > 0.1 : false
         // Auto-focus on the largest fast phase (reset): window around the biggest |velocity| spike
         let totalT = Double(tmp.count) * dt
         // Show full recording span by default so slow baseline curvature is visible
@@ -102,12 +107,14 @@ struct NystagmusResultView: View {
                         let seg = segs[idx]
                         ForEach(seg) { s in
                             LineMark(x: .value("t", s.t), y: .value("deg", s.eyeDeg))
-                                .foregroundStyle(Color.blue)
+                                .foregroundStyle(Color.blue.opacity(0.5))
                         }
                     }
-                    ForEach(seriesFrom(reconCombined)) { p in
-                        LineMark(x: .value("t", p.t), y: .value("deg", p.y))
-                            .foregroundStyle(Color.red.opacity(0.6))
+                    if hasNystagmus {
+                        ForEach(seriesFrom(reconCombined)) { p in
+                            LineMark(x: .value("t", p.t), y: .value("deg", p.y))
+                                .foregroundStyle(Color.red.opacity(0.7))
+                        }
                     }
                 }
                 // Always draw slow baseline for context
@@ -172,7 +179,7 @@ struct NystagmusResultView: View {
 
     private func filteredDegrees(_ s: [Sample]) -> [Sample] {
         // 1) Mask fast phases with higher threshold and extend gaps
-        let thresh = 50.0
+        let thresh = 80.0
         let pad = 2 // extend by ±2 frames
         var masked: [Sample] = s
         if hideFastPhases {
@@ -189,32 +196,11 @@ struct NystagmusResultView: View {
             }
             for i in maskIdx { masked[i] = Sample(t: s[i].t, eyeDeg: Double.nan, eyeVel: s[i].eyeVel) }
         }
-        // 2) Fill only small gaps (<=4 frames) with linear interpolation for drawing
-        var filled = masked
-        let maxGap = 4
-        var i = 0
-        while i < filled.count {
-            if filled[i].eyeDeg.isNaN {
-                let gapStart = i
-                while i < filled.count && filled[i].eyeDeg.isNaN { i += 1 }
-                let gapEnd = i
-                if gapEnd - gapStart <= maxGap {
-                    let left = gapStart > 0 ? masked[gapStart - 1] : masked[gapEnd]
-                    let right = gapEnd < masked.count ? masked[gapEnd] : left
-                    let len = max(1, gapEnd - gapStart + 1)
-                    for k in gapStart..<gapEnd {
-                        let t = Double(k - gapStart + 1) / Double(len)
-                        let y = left.eyeDeg + (right.eyeDeg - left.eyeDeg) * t
-                        filled[k] = Sample(t: masked[k].t, eyeDeg: y, eyeVel: masked[k].eyeVel)
-                    }
-                }
-            } else { i += 1 }
-        }
-        // 3) Gentle median3 + MA(3–5)
-        var y = filled
+        // 2) Gentle median3 + MA(3–5) on remaining visible segments only
+        var y = masked
         y = median3Deg(y)
         y = movingAverageDeg(y, window: max(3, min(5, smoothWindow)))
-        // 4) Window and decimate for plotting
+        // 3) Window and decimate for plotting
         y = y.filter { $0.t >= window.lowerBound && $0.t <= window.upperBound }
         return downsample(y, factor: 2)
     }
