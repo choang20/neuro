@@ -107,13 +107,13 @@ struct NystagmusScreen: View {
             HeadYawTracker.shared.reset()
             // Calibrate baseline with a short median window
             await calibrateBaseline()
-            speak("Turn left until the display shows forty degrees, then hold still.")
+            speak("Turn left to forty degrees and hold.")
             await waitUntilStable(predicate: { abs($0) >= 40 }, requiredFrames: 4)
-            speak("Good. Hold still.")
+            speak("Hold.")
             await countToFive()
-            speak("Now turn right until forty degrees, then hold still.")
+            speak("Turn right to forty degrees and hold.")
             await waitUntilStable(predicate: { abs($0) >= 40 }, requiredFrames: 4)
-            speak("Good. Hold still.")
+            speak("Hold.")
             await countToFive()
             // Optionally repeat cycles as needed
             dot_speed_subject.send(completion: .finished)
