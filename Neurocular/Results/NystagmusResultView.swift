@@ -29,7 +29,7 @@ struct NystagmusResultView: View {
     @State private var window: ClosedRange<Double>
     @State private var hideFastPhases = true
     @State private var smoothWindow = 4
-    @State private var showBaselineOnly = true
+    // Baseline is always shown; the overlay eye trace and sawtooth appear together
     private let showDetails = false // hide velocity and PSD by default
 
     init(examId: ExamId, navigation_path: Binding<NavigationPath>, storage_manager: Binding<StorageManager>) {
@@ -93,14 +93,11 @@ struct NystagmusResultView: View {
                 Spacer()
             }.padding(.horizontal)
 
-            // Baseline-only toggle to inspect slow sinusoid over full span
-            Toggle("Show baseline only", isOn: $showBaselineOnly)
-                .toggleStyle(SwitchToggleStyle(tint: .gray))
-                .padding(.horizontal)
+            // Removed baseline-only toggle for a simpler view
 
             // Position (deg)
             Chart {
-                if !showBaselineOnly {
+                do {
                     // Draw masked eye trace in segments so gaps don't connect with long diagonals
                     let segs = segments(filteredDegrees(samples))
                     ForEach(segs.indices, id: \.self) { idx in

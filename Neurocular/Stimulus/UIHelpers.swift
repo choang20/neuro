@@ -30,8 +30,15 @@ extension View {
 
 // Use a single shared synthesizer so utterances are queued consistently.
 fileprivate let sharedSynthesizer = AVSpeechSynthesizer()
+fileprivate var audioSessionConfigured = false
 
 func speak(_ text: String) {
+    if !audioSessionConfigured {
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.playback, mode: .spokenAudio, options: [.mixWithOthers, .defaultToSpeaker])
+        try? session.setActive(true, options: [])
+        audioSessionConfigured = true
+    }
     let utterance = AVSpeechUtterance(string: text)
     utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
     utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.9
@@ -40,6 +47,12 @@ func speak(_ text: String) {
 }
 
 func speakQueued(_ phrases: [String], rate: Float = AVSpeechUtteranceDefaultSpeechRate * 0.95, preDelay: Double = 0.15) {
+    if !audioSessionConfigured {
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.playback, mode: .spokenAudio, options: [.mixWithOthers, .defaultToSpeaker])
+        try? session.setActive(true, options: [])
+        audioSessionConfigured = true
+    }
     for phrase in phrases {
         let u = AVSpeechUtterance(string: phrase)
         u.voice = AVSpeechSynthesisVoice(language: "en-US")
