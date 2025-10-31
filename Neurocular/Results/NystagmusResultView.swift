@@ -100,24 +100,7 @@ struct NystagmusResultView: View {
             let eyeSeries = eyeSeriesFrom(segs)
             let baselineSeries = seriesFrom(baselineLP)
             let reconSeries = hasNystagmus ? seriesFrom(reconCombined) : []
-            Chart {
-                // Eye trace split into series per segment to avoid cross-gap connections
-                ForEach(eyeSeries) { p in
-                    LineMark(x: .value("t", p.t), y: .value("deg", p.y))
-                        .foregroundStyle(by: .value("Series", p.series))
-                }
-                // Reconstructed sawtooth overlay (only when detected)
-                ForEach(reconSeries) { p in
-                    LineMark(x: .value("t", p.t), y: .value("deg", p.y))
-                        .foregroundStyle(Color.red.opacity(0.7))
-                }
-                // Always draw slow baseline for context
-                ForEach(baselineSeries) { p in
-                    LineMark(x: .value("t", p.t), y: .value("deg", p.y))
-                        .foregroundStyle(Color.gray)
-                        .lineStyle(StrokeStyle(lineWidth: 2))
-                }
-            }
+            positionChart(eyeSeries: eyeSeries, baselineSeries: baselineSeries, reconSeries: reconSeries)
             .chartXAxisLabel("Seconds")
             .chartYAxisLabel("Degrees")
             .chartYScale(domain: -45...45)
@@ -477,6 +460,26 @@ struct NystagmusResultView: View {
             for s in seg { out.append(SegPoint(t: s.t, y: s.eyeDeg, series: key)) }
         }
         return out
+    }
+
+    // Extracted chart builder to reduce type-checking complexity
+    @ViewBuilder
+    private func positionChart(eyeSeries: [SegPoint], baselineSeries: [YPoint], reconSeries: [YPoint]) -> some View {
+        Chart {
+            ForEach(eyeSeries) { p in
+                LineMark(x: .value("t", p.t), y: .value("deg", p.y))
+                    .foregroundStyle(by: .value("Series", p.series))
+            }
+            ForEach(reconSeries) { p in
+                LineMark(x: .value("t", p.t), y: .value("deg", p.y))
+                    .foregroundStyle(Color.red.opacity(0.7))
+            }
+            ForEach(baselineSeries) { p in
+                LineMark(x: .value("t", p.t), y: .value("deg", p.y))
+                    .foregroundStyle(Color.gray)
+                    .lineStyle(StrokeStyle(lineWidth: 2))
+            }
+        }
     }
 }
 
