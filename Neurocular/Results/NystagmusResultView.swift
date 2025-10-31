@@ -105,7 +105,6 @@ struct NystagmusResultView: View {
             .chartYAxisLabel("Degrees")
             .chartYScale(domain: -45...45)
             .chartXScale(domain: window)
-            .chartForegroundStyleScale([:])
             .chartPlotStyle { plot in
                 plot.clipShape(Rectangle())
             }
@@ -468,7 +467,7 @@ struct NystagmusResultView: View {
         Chart {
             ForEach(eyeSeries) { p in
                 LineMark(x: .value("t", p.t), y: .value("deg", p.y))
-                    .foregroundStyle(by: .value("Series", p.series))
+                    .foregroundStyle(Color.blue.opacity(0.5))
             }
             ForEach(reconSeries) { p in
                 LineMark(x: .value("t", p.t), y: .value("deg", p.y))
