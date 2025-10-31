@@ -119,15 +119,21 @@ func headYawDegreesRelativeToCamera(_ transforms: Transforms) -> Float {
     ))
     // Head in camera space
     let rel = simd_inverse(cam) * head
-    // Camera looks along -Z. Head forward in its local frame is -Z. Extract rel's Z axis.
-    let zAxis = SIMD3<Float>(rel.columns.2.x, rel.columns.2.y, rel.columns.2.z)
-    let headForward = simd_normalize(-zAxis)
-    // Project forward onto camera XZ-plane and compute yaw about +Y.
-    let fXZ = simd_normalize(SIMD2<Float>(headForward.x, headForward.z))
-    // atan2(x, -z): right is +, left is - (camera coordinates)
-    let yaw = atan2f(fXZ.x, -fXZ.y) * 180.0 / .pi
-    // Flip sign so left = +, right = − to match clinical convention
-    return -yaw
+    // Camera axes in camera space
+    let camForward = simd_normalize(SIMD3<Float>(0,0,-1))
+    let camUp = simd_normalize(SIMD3<Float>(0,1,0))
+    // Head forward in camera space (local -Z)
+    let headF = simd_normalize(SIMD3<Float>(-rel.columns.2.x, -rel.columns.2.y, -rel.columns.2.z))
+    // Project both onto the camera's horizontal plane (remove roll influence)
+    let a = simd_normalize(headF - simd_dot(headF, camUp) * camUp)
+    let b = simd_normalize(camForward - simd_dot(camForward, camUp) * camUp)
+    // Signed angle around camUp
+    let crossAB = simd_cross(b, a)
+    let sinTheta = simd_dot(crossAB, camUp)
+    let cosTheta = simd_dot(b, a)
+    let yaw = atan2f(sinTheta, cosTheta) * 180.0 / .pi
+    // Convention: left = +, right = −
+    return yaw
 }
 
 /**

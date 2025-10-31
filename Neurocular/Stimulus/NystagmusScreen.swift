@@ -108,11 +108,11 @@ struct NystagmusScreen: View {
             // Calibrate baseline with a short median window
             await calibrateBaseline()
             speak("Slowly move your head as far as possible to the left while you look at the red dot.")
-            await waitUntilStable(predicate: { $0 <= -40 }, requiredFrames: 4)
+            await waitUntilStable(predicate: { abs($0) >= 40 }, requiredFrames: 4)
             speak("Hold this position; keep looking at the red dot.")
             await countToFive()
             speak("Now slowly turn your head all the way to the right while you look at the red dot.")
-            await waitUntilStable(predicate: { $0 >= 40 }, requiredFrames: 4)
+            await waitUntilStable(predicate: { abs($0) >= 40 }, requiredFrames: 4)
             speak("Hold this position; keep looking at the red dot.")
             await countToFive()
             // Optionally repeat cycles as needed
