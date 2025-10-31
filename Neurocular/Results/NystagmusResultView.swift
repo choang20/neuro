@@ -156,7 +156,7 @@ struct NystagmusResultView: View {
 
     private func filteredDegrees(_ s: [Sample]) -> [Sample] {
         // 1) Mask fast phases with higher threshold and extend gaps
-        let thresh = 80.0
+        let thresh = 100.0
         let pad = 2 // extend by ±2 frames
         var masked: [Sample] = s
         if hideFastPhases {
@@ -242,20 +242,24 @@ struct NystagmusResultView: View {
         var out: [[Sample]] = []
         var cur: [Sample] = []
         var lastT: Double? = nil
+        var lastY: Double? = nil
         for pt in s {
             if pt.eyeDeg.isNaN {
                 if !cur.isEmpty { out.append(cur); cur.removeAll() }
                 lastT = nil
+                lastY = nil
             } else {
                 if let lt = lastT {
                     let dt = pt.t - lt
-                    // Split on backward time or large gap (>0.3s)
-                    if dt < 0 || dt > 0.3 {
+                    let dy = (lastY != nil) ? abs(pt.eyeDeg - lastY!) : 0
+                    // Split on backward time, large gap (>0.25s), or implausible jump (>25°)
+                    if dt < 0 || dt > 0.25 || dy > 25 {
                         if !cur.isEmpty { out.append(cur); cur.removeAll() }
                     }
                 }
                 cur.append(pt)
                 lastT = pt.t
+                lastY = pt.eyeDeg
             }
         }
         if !cur.isEmpty { out.append(cur) }

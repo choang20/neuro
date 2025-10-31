@@ -98,7 +98,7 @@ struct NystagmusScreen: View {
     }
 
     private func countToFive() async {
-        speakQueued(["1","2","3","4","5"])
+        speakQueued(["1","2","3","4","5"]) // non-blocking queue
         try? await Task.sleep(for: .seconds(5))
     }
 
@@ -107,13 +107,13 @@ struct NystagmusScreen: View {
             HeadYawTracker.shared.reset()
             // Calibrate baseline with a short median window
             await calibrateBaseline()
-            speak("Slowly move your head as far as possible to the left while you look at the red dot.")
+            speak("Turn left until the display shows forty degrees, then hold still.")
             await waitUntilStable(predicate: { abs($0) >= 40 }, requiredFrames: 4)
-            speak("Hold this position; keep looking at the red dot.")
+            speak("Good. Hold still.")
             await countToFive()
-            speak("Now slowly turn your head all the way to the right while you look at the red dot.")
+            speak("Now turn right until forty degrees, then hold still.")
             await waitUntilStable(predicate: { abs($0) >= 40 }, requiredFrames: 4)
-            speak("Hold this position; keep looking at the red dot.")
+            speak("Good. Hold still.")
             await countToFive()
             // Optionally repeat cycles as needed
             dot_speed_subject.send(completion: .finished)
@@ -166,11 +166,6 @@ struct NystagmusScreen: View {
             },
             layout: .stacked
         )
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("done") { finishNowAndShowResults() }
-            }
-        }
     }
 }
 
