@@ -97,16 +97,14 @@ struct NystagmusResultView: View {
 
             // Position (deg)
             let segs = segments(filteredDegrees(samples))
+            let eyeSeries = eyeSeriesFrom(segs)
             let baselineSeries = seriesFrom(baselineLP)
             let reconSeries = hasNystagmus ? seriesFrom(reconCombined) : []
             Chart {
-                // Draw masked eye trace in segments so gaps don't connect with long diagonals
-                ForEach(segs.indices, id: \.self) { idx in
-                    let seg = segs[idx]
-                    ForEach(seg) { s in
-                        LineMark(x: .value("t", s.t), y: .value("deg", s.eyeDeg))
-                            .foregroundStyle(by: .value("Series", "Eye_\(idx)"))
-                    }
+                // Eye trace split into series per segment to avoid cross-gap connections
+                ForEach(eyeSeries) { p in
+                    LineMark(x: .value("t", p.t), y: .value("deg", p.y))
+                        .foregroundStyle(by: .value("Series", p.series))
                 }
                 // Reconstructed sawtooth overlay (only when detected)
                 ForEach(reconSeries) { p in
@@ -468,6 +466,17 @@ struct NystagmusResultView: View {
             }
         }
         return pts
+    }
+
+    // Eye series with segment keys to prevent cross-gap connections
+    struct SegPoint: Identifiable { let id = UUID(); let t: Double; let y: Double; let series: String }
+    private func eyeSeriesFrom(_ segs: [[Sample]]) -> [SegPoint] {
+        var out: [SegPoint] = []
+        for (idx, seg) in segs.enumerated() {
+            let key = "eye_\(idx)"
+            for s in seg { out.append(SegPoint(t: s.t, y: s.eyeDeg, series: key)) }
+        }
+        return out
     }
 }
 
