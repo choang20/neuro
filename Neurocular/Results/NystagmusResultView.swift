@@ -104,7 +104,7 @@ struct NystagmusResultView: View {
                         let seg = segs[idx]
                         ForEach(seg) { s in
                             LineMark(x: .value("t", s.t), y: .value("deg", s.eyeDeg))
-                                .foregroundStyle(Color.blue.opacity(0.5))
+                                .foregroundStyle(by: .value("Series", "Eye_\(idx)"))
                         }
                     }
                     if hasNystagmus {
@@ -125,6 +125,7 @@ struct NystagmusResultView: View {
             .chartYAxisLabel("Degrees")
             .chartYScale(domain: -45...45)
             .chartXScale(domain: window)
+            .chartForegroundStyleScale([:])
             .chartPlotStyle { plot in
                 plot.clipShape(Rectangle())
             }
@@ -261,11 +262,21 @@ struct NystagmusResultView: View {
     private func segments(_ s: [Sample]) -> [[Sample]] {
         var out: [[Sample]] = []
         var cur: [Sample] = []
+        var lastT: Double? = nil
         for pt in s {
             if pt.eyeDeg.isNaN {
                 if !cur.isEmpty { out.append(cur); cur.removeAll() }
+                lastT = nil
             } else {
+                if let lt = lastT {
+                    let dt = pt.t - lt
+                    // Split on backward time or large gap (>0.3s)
+                    if dt < 0 || dt > 0.3 {
+                        if !cur.isEmpty { out.append(cur); cur.removeAll() }
+                    }
+                }
                 cur.append(pt)
+                lastT = pt.t
             }
         }
         if !cur.isEmpty { out.append(cur) }
